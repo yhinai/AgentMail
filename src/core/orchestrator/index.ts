@@ -204,7 +204,8 @@ export class AutoBazaaarOrchestrator {
       'start-negotiation': this.processNegotiation.bind(this),
       'execute-purchase': this.processPurchase.bind(this),
       'create-listing': this.processListing.bind(this),
-      'update-prices': this.processPriceUpdate.bind(this)
+      'update-prices': this.processPriceUpdate.bind(this),
+      'execute-command': this.processExecuteCommand.bind(this)
     };
     
     // Register processors
@@ -331,6 +332,32 @@ export class AutoBazaaarOrchestrator {
     await this.eventBus.publish(SystemEvents.LISTING_UPDATED, data);
     this.state.performance.tasksCompleted++;
   }
+
+  private async processExecuteCommand(data: any, context: JobContext): Promise<void> {
+    try {
+      // Import CommandExecutor dynamically to avoid circular dependencies
+      const { CommandExecutor } = await import('../command/CommandExecutor');
+      const executor = new CommandExecutor();
+
+      // Execute command with orchestrator context
+      const commandContext = {
+        commandId: data.commandId,
+        parsedCommand: data.parsedCommand,
+        orchestrator: this,
+        queueManager: this.queueManager,
+        eventBus: this.eventBus,
+        agentRegistry: this.agentRegistry
+      };
+
+      await executor.executeCommand(data.parsedCommand, commandContext);
+      
+      this.state.performance.tasksCompleted++;
+    } catch (error) {
+      console.error('Command execution error:', error);
+      this.state.performance.tasksFailure++;
+      throw error;
+    }
+  }
   
   private selectNegotiationStrategy(analysis: DealAnalysis): string {
     // Dynamic strategy selection based on analysis
@@ -449,6 +476,10 @@ export class AutoBazaaarOrchestrator {
   
   getState(): OrchestratorState {
     return { ...this.state };
+  }
+
+  getAgentRegistry(): AgentRegistry {
+    return this.agentRegistry;
   }
 }
 

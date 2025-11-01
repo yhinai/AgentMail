@@ -1,6 +1,7 @@
 // Market Research Agent - Complete implementation with 5 platform scrapers and market enrichment
 import { BrowserUseIntegration } from '../integrations/BrowserUseIntegration';
 import { PerplexityIntegration } from '../integrations/PerplexityIntegration';
+import { DatabaseClient } from '../database/client';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 import type {
@@ -62,6 +63,7 @@ export class MarketResearchAgent implements Agent {
   private cache: Map<string, CachedResult>;
   private proxies: string[];
   private currentProxyIndex: number = 0;
+  private dbClient: DatabaseClient | null = null;
   
   constructor(config: MarketResearchConfig) {
     this.browserUse = config.browserUse;
@@ -69,6 +71,13 @@ export class MarketResearchAgent implements Agent {
     this.limit = pLimit(config.maxConcurrent || 5);
     this.cache = new Map();
     this.proxies = config.proxies || [];
+    
+    // Initialize database client for storing scraped items
+    try {
+      this.dbClient = new DatabaseClient();
+    } catch (error) {
+      console.warn('Database client not available, scraped items will not be saved to Convex');
+    }
   }
   
   async start(): Promise<void> {
@@ -118,6 +127,9 @@ export class MarketResearchAgent implements Agent {
       
       // Store in cache
       this.updateCache(opportunities);
+      
+      // Auto-save scraped items to Convex
+      await this.saveOpportunitiesToConvex(opportunities, 'browser_scraping');
       
       this.status = 'idle';
       return opportunities;
@@ -737,6 +749,98 @@ export class MarketResearchAgent implements Agent {
         category: item.category || 'general',
         ...item
       };
+    }
+  }
+
+  private async saveOpportunitiesToConvex(
+    opportunities: EnrichedOpportunity[],
+    source: string = 'browser_scraping'
+  ): Promise<void> {
+    if (!this.dbClient) {
+      return; // Database not available
+    }
+
+    // Save opportunities in parallel (with rate limiting)
+    const savePromises = opportunities.map(opportunity =>
+      this.saveOpportunityToConvex(opportunity, source).catch(error => {
+        console.error(`Failed to save opportunity ${opportunity.id} to Convex:`, error);
+      })
+    );
+
+    await Promise.allSettled(savePromises);
+  }
+
+  private async saveOpportunityToConvex(
+    opportunity: EnrichedOpportunity,
+    source: string
+  ): Promise<void> {
+    if (!this.dbClient) {
+      return;
+    }
+
+    try {
+      // Convert EnrichedOpportunity to Convex format
+      const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;
+      if (!convexUrl) {
+        return; // Convex not configured
+      }
+
+      // Use Convex HTTP client directly for mutations
+      const { ConvexHttpClient } = require('convex/browser');
+      const client = new ConvexHttpClient(convexUrl);
+      
+      // Try to import API (may not be available if Convex not set up)
+      let api: any;
+      try {
+        api = require('../../convex/_generated/api');
+      } catch {
+        // Convex API not generated yet
+        return;
+      }
+
+      // Parse location if it's a string
+      let locationObj = undefined;
+      if (opportunity.location) {
+        if (typeof opportunity.location === 'string') {
+          // Try to parse location string
+          const parts = opportunity.location.split(',').map(s => s.trim());
+          locationObj = {
+            city: parts[0],
+            state: parts[1],
+            zip: parts[2]
+          };
+        } else if (typeof opportunity.location === 'object') {
+          locationObj = opportunity.location;
+        }
+      }
+
+      await client.mutation(api.listings.storeScrapedItem, {
+        externalId: opportunity.id,
+        title: opportunity.title,
+        description: opportunity.description,
+        category: opportunity.category,
+        platform: opportunity.platform,
+        url: opportunity.url,
+        listingPrice: opportunity.price,
+        originalPrice: opportunity.originalPrice,
+        images: opportunity.images || [],
+        primaryImage: opportunity.images?.[0],
+        location: locationObj,
+        seller: {
+          id: opportunity.seller.id,
+          name: opportunity.seller.name,
+          email: opportunity.seller.email,
+          phone: opportunity.seller.phone,
+          rating: opportunity.seller.rating,
+          responseTime: opportunity.seller.responseTime,
+          platform: opportunity.platform
+        },
+        profitScore: opportunity.profitScore || 0,
+        source
+      });
+    } catch (error) {
+      // Silently fail - this is not critical for agent operation
+      console.debug(`Failed to save opportunity to Convex: ${error}`);
     }
   }
 }

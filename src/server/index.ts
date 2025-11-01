@@ -8,8 +8,11 @@ import { EventBus } from '../core/events/EventBus';
 import { QueueManager } from '../core/queue/QueueManager';
 import { AutoBazaaarOrchestrator } from '../core/orchestrator';
 import { IntegrationManager } from '../integrations';
+import { CommandParser } from '../core/command/CommandParser';
+import { CommandExecutor } from '../core/command/CommandExecutor';
 import config from '../config';
 import { SystemEvents } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 const app: Express = express();
 
@@ -30,6 +33,12 @@ const orchestrator = new AutoBazaaarOrchestrator({
   negotiationCheckInterval: config.orchestrator.negotiationCheckInterval,
   listingOptimizeInterval: config.orchestrator.listingOptimizeInterval
 }, integrations);
+
+// Initialize command system
+const commandParser = integrations.openai 
+  ? new CommandParser(integrations.openai)
+  : null;
+const commandExecutor = new CommandExecutor();
 
 // Middleware
 app.use(helmet());
@@ -71,9 +80,39 @@ app.get('/api/metrics', async (req: Request, res: Response) => {
 
 // Opportunities endpoints
 app.get('/api/opportunities', async (req: Request, res: Response) => {
-  // Get opportunities from database
-  // This would query Convex in production
-  res.json({ opportunities: [] });
+  try {
+    const { category, platform, minPrice, maxPrice, status } = req.query;
+    
+    // Query Convex for opportunities
+    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;
+    if (!convexUrl) {
+      return res.json({ opportunities: [] });
+    }
+
+    const { ConvexHttpClient } = require('convex/browser');
+    const client = new ConvexHttpClient(convexUrl);
+    
+    let api: any;
+    try {
+      api = require('../../convex/_generated/api');
+    } catch {
+      return res.json({ opportunities: [] });
+    }
+
+    const opportunities = await client.query(api.listings.getOpportunities, {
+      category: category as string | undefined,
+      platform: platform as string | undefined,
+      minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+      status: status as string | undefined,
+      limit: 100
+    });
+
+    res.json({ opportunities: opportunities || [] });
+  } catch (error: any) {
+    console.error('Error fetching opportunities:', error);
+    res.json({ opportunities: [] });
+  }
 });
 
 app.get('/api/opportunities/:id', async (req: Request, res: Response) => {
@@ -98,6 +137,174 @@ app.get('/api/negotiations/:id', async (req: Request, res: Response) => {
 app.get('/api/listings', async (req: Request, res: Response) => {
   // Get active listings
   res.json({ listings: [] });
+});
+
+// Scraped listings endpoint
+app.get('/api/listings/scraped', async (req: Request, res: Response) => {
+  try {
+    const { category, platform, minPrice, maxPrice } = req.query;
+    
+    // Query Convex for scraped listings
+    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL;
+    if (!convexUrl) {
+      return res.json({ listings: [] });
+    }
+
+    const { ConvexHttpClient } = require('convex/browser');
+    const client = new ConvexHttpClient(convexUrl);
+    
+    let api: any;
+    try {
+      api = require('../../convex/_generated/api');
+    } catch {
+      return res.json({ listings: [] });
+    }
+
+    const listings = await client.query(api.listings.getScrapedListings, {
+      category: category as string | undefined,
+      platform: platform as string | undefined,
+      minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+      limit: 100
+    });
+
+    res.json({ listings: listings || [] });
+  } catch (error: any) {
+    console.error('Error fetching scraped listings:', error);
+    res.json({ listings: [] });
+  }
+});
+
+// Command endpoint
+app.post('/api/command', async (req: Request, res: Response) => {
+  try {
+    const { command } = req.body;
+    
+    if (!command || typeof command !== 'string') {
+      return res.status(400).json({ 
+        error: 'Command is required and must be a string' 
+      });
+    }
+
+    if (!commandParser) {
+      return res.status(503).json({ 
+        error: 'Command parser not available. OpenAI integration required.' 
+      });
+    }
+
+    // Parse command
+    const parseResult = await commandParser.parseCommand(command);
+    
+    if (!parseResult.success || !parseResult.command) {
+      return res.status(400).json({
+        success: false,
+        error: parseResult.error || 'Failed to parse command'
+      });
+    }
+
+    // Generate command ID
+    const commandId = uuidv4();
+
+    // Execute command asynchronously
+    const context = {
+      commandId,
+      parsedCommand: parseResult.command,
+      orchestrator,
+      queueManager,
+      eventBus,
+      agentRegistry: orchestrator.getAgentRegistry()
+    };
+
+    // Queue command execution
+    await queueManager.addJob('execute-command', {
+      commandId,
+      parsedCommand: parseResult.command,
+      originalCommand: command
+    }, {
+      priority: 'high'
+    });
+
+    // Return immediately with command ID
+    res.json({
+      success: true,
+      commandId,
+      status: 'pending',
+      parsedCommand: parseResult.command,
+      message: 'Command accepted and queued for execution'
+    });
+  } catch (error: any) {
+    console.error('Command API error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to process command'
+    });
+  }
+});
+
+// Get command status
+app.get('/api/command/:commandId', async (req: Request, res: Response) => {
+  try {
+    const { commandId } = req.params;
+    const status = commandExecutor.getCommandStatus(commandId);
+    
+    if (!status) {
+      return res.status(404).json({
+        error: 'Command not found'
+      });
+    }
+
+    res.json(status);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Command preview endpoint (for real-time LLM analysis)
+app.post('/api/command/preview', async (req: Request, res: Response) => {
+  try {
+    const { command } = req.body;
+    
+    if (!command || typeof command !== 'string') {
+      return res.status(400).json({ error: 'Command is required' });
+    }
+
+    if (!commandParser) {
+      return res.status(503).json({ error: 'Command parser not available' });
+    }
+
+    // Parse command for preview
+    const parseResult = await commandParser.parseCommand(command);
+    
+    if (!parseResult.success || !parseResult.command) {
+      return res.json({ parsed: null });
+    }
+
+    res.json({
+      parsed: {
+        budget: parseResult.command.budget,
+        quantity: parseResult.command.quantity,
+        category: parseResult.command.category,
+        action: parseResult.command.action
+      }
+    });
+  } catch (error: any) {
+    // Preview errors shouldn't block the UI
+    res.json({ parsed: null });
+  }
+});
+
+// Command history endpoint
+app.get('/api/commands/history', async (req: Request, res: Response) => {
+  try {
+    // TODO: Query Convex for command history
+    // For now, return commands from executor's active commands
+    const allCommands: any[] = [];
+    
+    // This would query Convex in production
+    res.json({ commands: allCommands });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Queue status endpoint

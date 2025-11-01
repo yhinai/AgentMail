@@ -78,6 +78,9 @@ export default defineSchema({
     status: v.string(), // 'discovered', 'analyzing', 'approved', 'negotiating', 'purchased', 'passed', 'expired'
     statusReason: v.optional(v.string()),
     
+    // Source tracking
+    source: v.optional(v.string()), // 'browser_scraping', 'command', 'manual'
+    
     // Timestamps
     discoveredAt: v.number(),
     analyzedAt: v.optional(v.number()),

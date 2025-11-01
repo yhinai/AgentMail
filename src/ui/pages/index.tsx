@@ -4,6 +4,9 @@ import MetricsCards from '../components/MetricsCards';
 import ActivityFeed from '../components/ActivityFeed';
 import ControlPanel from '../components/ControlPanel';
 import TransactionsTable from '../components/TransactionsTable';
+import CommandInput from '../components/CommandInput';
+import CommandHistory from '../components/CommandHistory';
+import ScrapedListings from '../components/ScrapedListings';
 import type { Metrics, Transaction } from '../../types';
 
 export default function Dashboard() {
@@ -83,6 +86,40 @@ export default function Dashboard() {
     }]);
   };
 
+  const handleCommandSubmit = async (command: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to submit command');
+      }
+
+      const data = await response.json();
+      
+      setActivities(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'success',
+        message: `Command submitted: "${command}"`,
+        timestamp: new Date(),
+      }]);
+
+      return data.commandId;
+    } catch (error: any) {
+      setActivities(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'error',
+        message: `Command failed: ${error.message}`,
+        timestamp: new Date(),
+      }]);
+      throw error;
+    }
+  };
+
   return (
     <>
       <Head>
@@ -116,6 +153,12 @@ export default function Dashboard() {
           {/* Metrics Cards */}
           <MetricsCards metrics={metrics} />
 
+          {/* Command Interface Section */}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CommandInput onCommandSubmit={handleCommandSubmit} />
+            <CommandHistory />
+          </div>
+
           {/* Control Panel */}
           <div className="mt-8">
             <ControlPanel
@@ -123,6 +166,11 @@ export default function Dashboard() {
               onStartDemo={handleStartDemo}
               onStop={handleStop}
             />
+          </div>
+
+          {/* Scraped Listings */}
+          <div className="mt-8">
+            <ScrapedListings />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
