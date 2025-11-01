@@ -34,7 +34,7 @@ export const storeScrapedItem = mutation({
       platform: v.string()
     }),
     profitScore: v.number(),
-    source: v.optional(v.string()), // 'browser_scraping' | 'command' | 'manual'
+    source: v.optional(v.string()), // 'browser_scraping' | 'browser_use_agent' | 'command' | 'manual'
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -80,7 +80,7 @@ export const storeScrapedItem = mutation({
       seller: args.seller,
       profitScore: args.profitScore,
       status: "discovered",
-      source: args.source || "browser_scraping",
+      source: args.source || "browser_use_agent",
       discoveredAt: now,
       lastUpdated: now
     });

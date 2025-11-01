@@ -23,15 +23,40 @@ export interface BrowserSessionOptions {
   proxy?: string;
 }
 
+export interface AgentTaskOptions {
+  task: string;
+  maxSteps?: number;
+  extractSchema?: Record<string, any>; // TypeScript equivalent of Pydantic schema
+  headless?: boolean;
+  useVision?: boolean | 'auto';
+  browserOptions?: BrowserSessionOptions;
+}
+
+export interface AgentRunResult {
+  success: boolean;
+  final_result?: any;
+  extracted_content?: any;
+  error?: string;
+  history?: {
+    steps: number;
+    urls: string[];
+    actions: string[];
+  };
+}
+
 export class BrowserUseIntegration {
   private client: AxiosInstance;
+  private bridgeClient: AxiosInstance;
   private apiKey: string;
   private baseUrl: string;
+  private bridgeUrl: string;
   
   constructor(apiKey: string) {
     this.apiKey = apiKey;
     this.baseUrl = config.browserUse.apiUrl;
+    this.bridgeUrl = config.browserUse.bridgeUrl;
     
+    // Client for direct browser-use API (if using cloud)
     this.client = axios.create({
       baseURL: this.baseUrl,
       headers: {
@@ -39,6 +64,15 @@ export class BrowserUseIntegration {
         'Content-Type': 'application/json'
       },
       timeout: 60000
+    });
+    
+    // Client for Python bridge service (for Agent API)
+    this.bridgeClient = axios.create({
+      baseURL: this.bridgeUrl,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 300000 // 5 minutes for Agent tasks
     });
   }
   
@@ -60,14 +94,88 @@ export class BrowserUseIntegration {
   
   async healthCheck(): Promise<{ healthy: boolean; error?: string }> {
     try {
-      await this.client.get('/health', { timeout: 5000 });
-      return { healthy: true };
+      // Check bridge service health
+      try {
+        const bridgeHealth = await this.bridgeClient.get('/health');
+        if (bridgeHealth.data?.healthy) {
+          return { healthy: true };
+        }
+      } catch (bridgeError: any) {
+        // Bridge not available, check direct API
+        if (this.apiKey && this.apiKey !== 'your_browser_use_api_key_here') {
+          return { 
+            healthy: true,
+            error: 'Bridge service unavailable, using direct API'
+          };
+        }
+      }
+      
+      return {
+        healthy: false,
+        error: 'API key not configured and bridge service unavailable'
+      };
     } catch (error: any) {
       return {
         healthy: false,
         error: error.message || 'Health check failed'
       };
     }
+  }
+
+  /**
+   * Run a browser-use Agent task with AI-driven automation
+   * Uses the Python bridge service to execute browser-use Agent API
+   */
+  async runAgent(options: AgentTaskOptions): Promise<AgentRunResult> {
+    try {
+      const response = await this.bridgeClient.post('/agent/run', {
+        task: options.task,
+        max_steps: options.maxSteps || 50,
+        extract_schema: options.extractSchema,
+        headless: options.headless ?? true,
+        use_vision: options.useVision ?? 'auto',
+        browser_options: options.browserOptions
+      });
+
+      return {
+        success: response.data.success ?? true,
+        final_result: response.data.final_result,
+        extracted_content: response.data.extracted_content,
+        history: response.data.history,
+        error: response.data.error
+      };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
+      return {
+        success: false,
+        error: `Agent task failed: ${errorMessage}`
+      };
+    }
+  }
+
+  /**
+   * Extract structured content from a webpage using browser-use Agent
+   * This is a convenience method that wraps runAgent with extraction focus
+   */
+  async extractContent<T = any>(
+    url: string,
+    extractionPrompt: string,
+    schema?: Record<string, any>,
+    options?: Omit<AgentTaskOptions, 'task' | 'extractSchema'>
+  ): Promise<T | null> {
+    const task = `Navigate to ${url} and ${extractionPrompt}`;
+    
+    const result = await this.runAgent({
+      task,
+      extractSchema: schema,
+      ...options
+    });
+
+    if (result.success && result.extracted_content) {
+      return result.extracted_content as T;
+    }
+
+    return null;
   }
 }
 

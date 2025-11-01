@@ -96,7 +96,11 @@ app.get('/api/opportunities', async (req: Request, res: Response) => {
     try {
       api = require('../../convex/_generated/api');
     } catch {
-      return res.json({ opportunities: [] });
+      try {
+        api = require('../convex/_generated/api');
+      } catch {
+        return res.json({ opportunities: [] });
+      }
     }
 
     const opportunities = await client.query(api.listings.getOpportunities, {
@@ -157,7 +161,11 @@ app.get('/api/listings/scraped', async (req: Request, res: Response) => {
     try {
       api = require('../../convex/_generated/api');
     } catch {
-      return res.json({ listings: [] });
+      try {
+        api = require('../convex/_generated/api');
+      } catch {
+        return res.json({ listings: [] });
+      }
     }
 
     const listings = await client.query(api.listings.getScrapedListings, {

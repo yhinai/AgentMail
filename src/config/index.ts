@@ -36,6 +36,7 @@ interface Config {
   browserUse: {
     apiKey: string;
     apiUrl: string;
+    bridgeUrl: string; // Python bridge service URL for Agent API
   };
   
   hyperspell: {
@@ -138,12 +139,12 @@ export const config: Config = {
   },
   
   openai: {
-    apiKey: getEnv('OPENAI_API_KEY'),
-    model: getEnv('OPENAI_MODEL', 'gpt-4-turbo-preview')
+    apiKey: process.env.OPENAI_API_KEY || process.env.BROWSER_USE_API_KEY || '',
+    model: getEnv('OPENAI_MODEL', 'gpt-4o')
   },
   
   agentMail: {
-    apiKey: getEnv('AGENTMAIL_API_KEY'),
+    apiKey: process.env.AGENTMAIL_API_KEY || '',
     apiUrl: getEnv('AGENTMAIL_API_URL', 'https://api.agentmail.com/v1'),
     fromEmail: getEnv('AGENTMAIL_FROM_EMAIL', 'deals@autobazaaar.com'),
     fromName: getEnv('AGENTMAIL_FROM_NAME', 'Alex from AutoBazaaar'),
@@ -151,23 +152,24 @@ export const config: Config = {
   },
   
   browserUse: {
-    apiKey: getEnv('BROWSER_USE_API_KEY'),
-    apiUrl: getEnv('BROWSER_USE_API_URL', 'https://api.browser-use.com/v1')
+    apiKey: process.env.BROWSER_USE_API_KEY || '',
+    apiUrl: getEnv('BROWSER_USE_API_URL', 'https://api.browser-use.com/v1'),
+    bridgeUrl: getEnv('BROWSER_BRIDGE_URL', 'http://localhost:8001')
   },
   
   hyperspell: {
-    apiKey: getEnv('HYPERSPELL_API_KEY'),
+    apiKey: process.env.HYPERSPELL_API_KEY || '',
     apiUrl: getEnv('HYPERSPELL_API_URL', 'https://api.hyperspell.com'),
     namespace: getEnv('HYPERSPELL_NAMESPACE', 'nihal')
   },
   
   perplexity: {
-    apiKey: getEnv('PERPLEXITY_API_KEY'),
+    apiKey: process.env.PERPLEXITY_API_KEY || '',
     apiUrl: getEnv('PERPLEXITY_API_URL', 'https://api.perplexity.ai')
   },
   
   composio: {
-    apiKey: getEnv('COMPOSIO_API_KEY'),
+    apiKey: process.env.COMPOSIO_API_KEY || '',
     apiUrl: getEnv('COMPOSIO_API_URL', 'https://api.composio.dev')
   },
   

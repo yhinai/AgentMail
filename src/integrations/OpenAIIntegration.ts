@@ -54,7 +54,7 @@ export class OpenAIIntegration {
   async healthCheck(): Promise<{ healthy: boolean; error?: string }> {
     try {
       await this.client.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: this.defaultModel || 'gpt-4o',
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 1
       });

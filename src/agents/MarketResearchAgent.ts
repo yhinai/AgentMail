@@ -1,7 +1,13 @@
 // Market Research Agent - Complete implementation with 5 platform scrapers and market enrichment
 import { BrowserUseIntegration } from '../integrations/BrowserUseIntegration';
 import { PerplexityIntegration } from '../integrations/PerplexityIntegration';
-import { DatabaseClient } from '../database/client';
+// Lazy load DatabaseClient to avoid Convex import errors
+let DatabaseClient: any;
+try {
+  DatabaseClient = require('../database/client').DatabaseClient;
+} catch {
+  DatabaseClient = null;
+}
 import pLimit from 'p-limit';
 import { z } from 'zod';
 import type {
@@ -74,7 +80,14 @@ export class MarketResearchAgent implements Agent {
     
     // Initialize database client for storing scraped items
     try {
-      this.dbClient = new DatabaseClient();
+      try {
+      if (DatabaseClient) {
+        this.dbClient = new DatabaseClient();
+      }
+    } catch {
+      // DatabaseClient not available - will use direct Convex calls
+      this.dbClient = null;
+    }
     } catch (error) {
       console.warn('Database client not available, scraped items will not be saved to Convex');
     }
@@ -129,7 +142,7 @@ export class MarketResearchAgent implements Agent {
       this.updateCache(opportunities);
       
       // Auto-save scraped items to Convex
-      await this.saveOpportunitiesToConvex(opportunities, 'browser_scraping');
+      await this.saveOpportunitiesToConvex(opportunities, 'browser_use_agent');
       
       this.status = 'idle';
       return opportunities;
@@ -178,227 +191,366 @@ export class MarketResearchAgent implements Agent {
   }
   
   private async scrapeFacebookMarketplace(task: SearchTask): Promise<ScrapedItem[]> {
-    const session = await this.browserUse.newSession({
-      headless: true,
-      proxy: this.getNextProxy()
-    });
-    
     try {
-      const page = session.page;
-      
-      // Navigate to Facebook Marketplace
-      await page.goto('https://www.facebook.com/marketplace', {
-        waitUntil: 'networkidle2'
-      });
-      
-      // Apply search filters
-      await this.applyFacebookFilters(page, task);
-      
-      // Scroll and collect items
-      const items: ScrapedItem[] = [];
-      let scrollAttempts = 0;
-      
-      while (items.length < task.limit && scrollAttempts < 10) {
-        // Extract visible items
-        const newItems = await page.evaluate(() => {
-          const products: any[] = [];
-          
-          document.querySelectorAll('[data-testid="marketplace-feed-item"]').forEach(el => {
-            const link = el.querySelector('a')?.getAttribute('href');
-            if (!link) return;
-            
-            const title = el.querySelector('[class*="title"]')?.textContent?.trim();
-            const priceText = el.querySelector('[class*="price"]')?.textContent;
-            const price = priceText ? parseInt(priceText.replace(/\D/g, '')) : null;
-            const image = el.querySelector('img')?.src;
-            const location = el.querySelector('[class*="location"]')?.textContent?.trim();
-            
-            if (title && price) {
-              products.push({
-                id: link.split('/').pop()?.split('?')[0] || '',
-                title,
-                price,
-                url: `https://www.facebook.com${link}`,
-                images: image ? [image] : [],
-                location,
-                platform: 'facebook',
-                listingDate: new Date().toISOString(),
-                seller: {
-                  id: 'unknown',
-                  name: el.querySelector('[class*="seller"]')?.textContent?.trim()
-                },
-                category: task.category
-              });
+      const taskDescription = `Go to Facebook Marketplace (https://www.facebook.com/marketplace) and search for "${task.category}" items. 
+        ${task.location ? `Filter by location: ${task.location}.` : ''}
+        ${task.minPrice ? `Minimum price: $${task.minPrice}.` : ''}
+        ${task.maxPrice ? `Maximum price: $${task.maxPrice}.` : ''}
+        Extract up to ${task.limit} product listings. For each listing, extract:
+        - id (from the URL)
+        - title
+        - price (as a number)
+        - url (full URL)
+        - images (array of image URLs)
+        - location (if available)
+        - seller name (if available)
+        - description (if available)
+        - listing date (if available)
+        Scroll through results to collect multiple items.`;
+
+      const extractSchema = {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+              price: { type: "number" },
+              url: { type: "string" },
+              images: { type: "array", items: { type: "string" } },
+              location: { type: "string" },
+              seller: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } },
+              description: { type: "string" },
+              listingDate: { type: "string" },
+              category: { type: "string" }
             }
-          });
-          
-          return products;
-        });
-        
-        // Add new unique items
-        for (const item of newItems) {
-          if (!items.find(i => i.id === item.id)) {
-            items.push(this.validateScrapedItem(item));
           }
         }
-        
-        // Scroll for more items
-        await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
-        await this.randomDelay(2000, 4000);
-        scrollAttempts++;
+      };
+
+      const result = await this.browserUse.runAgent({
+        task: taskDescription,
+        maxSteps: 30,
+        extractSchema,
+        headless: true,
+        useVision: 'auto',
+        browserOptions: {
+          proxy: this.getNextProxy()
+        }
+      });
+
+      if (!result.success || !result.extracted_content) {
+        console.error('Facebook scraping failed:', result.error);
+        return [];
       }
+
+      // Extract items from result
+      const extractedItems = result.extracted_content.items || [];
       
-      return items.slice(0, task.limit);
-      
+      return extractedItems.map((item: any) => this.validateScrapedItem({
+        ...item,
+        platform: 'facebook',
+        listingDate: item.listingDate ? new Date(item.listingDate) : new Date(),
+        seller: item.seller || { id: 'unknown' },
+        category: task.category
+      })).slice(0, task.limit);
+
     } catch (error) {
       console.error('Facebook scraping error:', error);
       return [];
-    } finally {
-      await session.close();
     }
   }
   
   private async scrapeCraigslist(task: SearchTask): Promise<ScrapedItem[]> {
-    const session = await this.browserUse.newSession({
-      headless: true,
-      proxy: this.getNextProxy()
-    });
-    
     try {
-      const page = session.page;
       const location = task.location || 'sfbay';
       const category = this.mapCategoryToCraigslist(task.category);
-      
-      // Build search URL
       const searchUrl = `https://${location}.craigslist.org/search/${category}?` + 
         `min_price=${task.minPrice || ''}&max_price=${task.maxPrice || ''}&sort=date`;
-      
-      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
-      
-      // Extract listings
-      const listings = await page.evaluate(() => {
-        const items: any[] = [];
-        
-        document.querySelectorAll('.result-row').forEach(row => {
-          const link = row.querySelector('.result-title')?.getAttribute('href');
-          const title = row.querySelector('.result-title')?.textContent?.trim();
-          const priceText = row.querySelector('.result-price')?.textContent;
-          const price = priceText ? parseInt(priceText.replace(/\D/g, '')) : null;
-          const location = row.querySelector('.result-hood')?.textContent?.trim();
-          const dateText = row.querySelector('.result-date')?.getAttribute('datetime');
-          const image = row.querySelector('.result-image img')?.getAttribute('src');
-          
-          if (title && price && link) {
-            items.push({
-              id: row.getAttribute('data-pid') || '',
-              title,
-              price,
-              url: link.startsWith('http') ? link : `https://sfbay.craigslist.org${link}`,
-              images: image ? [image] : [],
-              location: location?.replace(/[()]/g, '').trim(),
-              platform: 'craigslist',
-              listingDate: dateText || new Date().toISOString(),
-              seller: {
-                id: 'cl-' + (row.getAttribute('data-pid') || ''),
-                name: 'Craigslist User'
-              },
-              category: task.category
-            });
+
+      const taskDescription = `Go to ${searchUrl} and extract up to ${task.limit} Craigslist listings. 
+        For each listing, extract:
+        - id (from data-pid attribute or URL)
+        - title
+        - price (as a number)
+        - url (full URL)
+        - images (array of image URLs)
+        - location (neighborhood if available)
+        - listing date (from datetime attribute if available)
+        - description (if visible on listing page)`;
+
+      const extractSchema = {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+              price: { type: "number" },
+              url: { type: "string" },
+              images: { type: "array", items: { type: "string" } },
+              location: { type: "string" },
+              listingDate: { type: "string" },
+              description: { type: "string" }
+            }
           }
-        });
-        
-        return items;
+        }
+      };
+
+      const result = await this.browserUse.runAgent({
+        task: taskDescription,
+        maxSteps: 30,
+        extractSchema,
+        headless: true,
+        useVision: 'auto',
+        browserOptions: {
+          proxy: this.getNextProxy()
+        }
       });
+
+      if (!result.success || !result.extracted_content) {
+        console.error('Craigslist scraping failed:', result.error);
+        return [];
+      }
+
+      const extractedItems = result.extracted_content.items || [];
       
-      return listings.map(item => this.validateScrapedItem(item));
-      
+      return extractedItems.map((item: any) => this.validateScrapedItem({
+        ...item,
+        platform: 'craigslist',
+        listingDate: item.listingDate ? new Date(item.listingDate) : new Date(),
+        seller: {
+          id: 'cl-' + (item.id || ''),
+          name: 'Craigslist User'
+        },
+        category: task.category
+      })).slice(0, task.limit);
+
     } catch (error) {
       console.error('Craigslist scraping error:', error);
       return [];
-    } finally {
-      await session.close();
     }
   }
   
   private async scrapeEbay(task: SearchTask): Promise<ScrapedItem[]> {
-    const session = await this.browserUse.newSession({
-      headless: true,
-      proxy: this.getNextProxy()
-    });
-    
     try {
-      const page = session.page;
-      
-      // Build eBay search URL
       const searchUrl = new URL('https://www.ebay.com/sch/i.html');
       searchUrl.searchParams.set('_nkw', task.category);
       searchUrl.searchParams.set('_sop', '10'); // Newly listed
       searchUrl.searchParams.set('LH_BIN', '1'); // Buy It Now only
       searchUrl.searchParams.set('_udhi', task.maxPrice?.toString() || '');
       searchUrl.searchParams.set('_udlo', task.minPrice?.toString() || '');
-      
-      await page.goto(searchUrl.toString(), { waitUntil: 'networkidle2' });
-      
-      // Extract listings
-      const listings = await page.evaluate(() => {
-        const items: any[] = [];
-        
-        document.querySelectorAll('.s-item').forEach(item => {
-          const link = item.querySelector('.s-item__link')?.getAttribute('href');
-          const title = item.querySelector('.s-item__title')?.textContent?.trim();
-          const priceText = item.querySelector('.s-item__price')?.textContent;
-          const price = priceText ? parseFloat(priceText.replace(/[^0-9.]/g, '')) : null;
-          const image = item.querySelector('.s-item__image img')?.getAttribute('src');
-          const shippingText = item.querySelector('.s-item__shipping')?.textContent;
-          const sellerInfo = item.querySelector('.s-item__seller-info-text')?.textContent;
-          const watchers = item.querySelector('.s-item__watchcount')?.textContent;
-          
-          if (title && price && link) {
-            const itemId = link.split('/').pop()?.split('?')[0] || '';
-            
-            items.push({
-              id: itemId,
-              title: title.replace('New Listing', '').trim(),
-              price,
-              url: link,
-              images: image ? [image] : [],
-              shipping: shippingText || 'Calculate',
-              seller: {
-                id: 'ebay-seller',
-                name: sellerInfo?.split('(')[0]?.trim(),
-                rating: sellerInfo ? parseInt(sellerInfo.match(/\((\d+)\)/)?.[1] || '0') : undefined
-              },
-              watchers: watchers ? parseInt(watchers.replace(/\D/g, '')) : 0,
-              platform: 'ebay',
-              listingDate: new Date().toISOString(),
-              category: task.category
-            });
+
+      const taskDescription = `Go to ${searchUrl.toString()} and extract up to ${task.limit} eBay listings. 
+        For each listing, extract:
+        - id (from URL or item ID)
+        - title (remove "New Listing" prefix if present)
+        - price (as a number, handle shipping separately if shown)
+        - url (full URL)
+        - images (array of image URLs)
+        - shipping cost or text
+        - seller name and rating (if available)
+        - watchers count (if available)
+        - listing date (if available)`;
+
+      const extractSchema = {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+              price: { type: "number" },
+              url: { type: "string" },
+              images: { type: "array", items: { type: "string" } },
+              shipping: { type: "string" },
+              seller: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, rating: { type: "number" } } },
+              watchers: { type: "number" },
+              listingDate: { type: "string" }
+            }
           }
-        });
-        
-        return items;
+        }
+      };
+
+      const result = await this.browserUse.runAgent({
+        task: taskDescription,
+        maxSteps: 30,
+        extractSchema,
+        headless: true,
+        useVision: 'auto',
+        browserOptions: {
+          proxy: this.getNextProxy()
+        }
       });
+
+      if (!result.success || !result.extracted_content) {
+        console.error('eBay scraping failed:', result.error);
+        return [];
+      }
+
+      const extractedItems = result.extracted_content.items || [];
       
-      return listings.slice(0, task.limit).map(item => this.validateScrapedItem(item));
-      
+      return extractedItems.map((item: any) => this.validateScrapedItem({
+        ...item,
+        platform: 'ebay',
+        listingDate: item.listingDate ? new Date(item.listingDate) : new Date(),
+        seller: item.seller || { id: 'ebay-seller' },
+        category: task.category,
+        watchers: item.watchers || 0
+      })).slice(0, task.limit);
+
     } catch (error) {
       console.error('eBay scraping error:', error);
       return [];
-    } finally {
-      await session.close();
     }
   }
   
   private async scrapeMercari(task: SearchTask): Promise<ScrapedItem[]> {
-    // Similar implementation to other platforms
-    // Mercari-specific scraping logic
-    return [];
+    try {
+      const searchQuery = encodeURIComponent(task.category);
+      const searchUrl = `https://www.mercari.com/search/?keyword=${searchQuery}`;
+      
+      const taskDescription = `Go to ${searchUrl} and extract up to ${task.limit} Mercari listings. 
+        ${task.minPrice ? `Filter minimum price: $${task.minPrice}.` : ''}
+        ${task.maxPrice ? `Filter maximum price: $${task.maxPrice}.` : ''}
+        For each listing, extract:
+        - id (from URL)
+        - title
+        - price (as a number)
+        - url (full URL)
+        - images (array of image URLs)
+        - location (if available)
+        - seller info (if available)
+        - condition (if available)
+        - listing date (if available)`;
+
+      const extractSchema = {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+              price: { type: "number" },
+              url: { type: "string" },
+              images: { type: "array", items: { type: "string" } },
+              location: { type: "string" },
+              seller: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } },
+              condition: { type: "string" },
+              listingDate: { type: "string" }
+            }
+          }
+        }
+      };
+
+      const result = await this.browserUse.runAgent({
+        task: taskDescription,
+        maxSteps: 30,
+        extractSchema,
+        headless: true,
+        useVision: 'auto',
+        browserOptions: {
+          proxy: this.getNextProxy()
+        }
+      });
+
+      if (!result.success || !result.extracted_content) {
+        console.error('Mercari scraping failed:', result.error);
+        return [];
+      }
+
+      const extractedItems = result.extracted_content.items || [];
+      
+      return extractedItems.map((item: any) => this.validateScrapedItem({
+        ...item,
+        platform: 'mercari',
+        listingDate: item.listingDate ? new Date(item.listingDate) : new Date(),
+        seller: item.seller || { id: 'mercari-seller' },
+        category: task.category,
+        condition: item.condition
+      })).slice(0, task.limit);
+
+    } catch (error) {
+      console.error('Mercari scraping error:', error);
+      return [];
+    }
   }
   
   private async scrapeOfferUp(task: SearchTask): Promise<ScrapedItem[]> {
-    // Similar implementation to other platforms
-    // OfferUp-specific scraping logic
-    return [];
+    try {
+      const searchQuery = encodeURIComponent(task.category);
+      const location = task.location || 'san-francisco-ca';
+      const searchUrl = `https://www.offerup.com/search/?q=${searchQuery}&location=${location}`;
+      
+      const taskDescription = `Go to ${searchUrl} and extract up to ${task.limit} OfferUp listings. 
+        ${task.minPrice ? `Filter minimum price: $${task.minPrice}.` : ''}
+        ${task.maxPrice ? `Filter maximum price: $${task.maxPrice}.` : ''}
+        For each listing, extract:
+        - id (from URL)
+        - title
+        - price (as a number)
+        - url (full URL)
+        - images (array of image URLs)
+        - location (neighborhood or city)
+        - seller name (if available)
+        - listing date (if available)
+        - views or watchers (if available)`;
+
+      const extractSchema = {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              title: { type: "string" },
+              price: { type: "number" },
+              url: { type: "string" },
+              images: { type: "array", items: { type: "string" } },
+              location: { type: "string" },
+              seller: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } },
+              listingDate: { type: "string" },
+              views: { type: "number" }
+            }
+          }
+        }
+      };
+
+      const result = await this.browserUse.runAgent({
+        task: taskDescription,
+        maxSteps: 30,
+        extractSchema,
+        headless: true,
+        useVision: 'auto',
+        browserOptions: {
+          proxy: this.getNextProxy()
+        }
+      });
+
+      if (!result.success || !result.extracted_content) {
+        console.error('OfferUp scraping failed:', result.error);
+        return [];
+      }
+
+      const extractedItems = result.extracted_content.items || [];
+      
+      return extractedItems.map((item: any) => this.validateScrapedItem({
+        ...item,
+        platform: 'offerup',
+        listingDate: item.listingDate ? new Date(item.listingDate) : new Date(),
+        seller: item.seller || { id: 'offerup-seller' },
+        category: task.category,
+        views: item.views || 0
+      })).slice(0, task.limit);
+
+    } catch (error) {
+      console.error('OfferUp scraping error:', error);
+      return [];
+    }
   }
   
   private async enrichItems(
@@ -786,17 +938,40 @@ export class MarketResearchAgent implements Agent {
       }
 
       // Use Convex HTTP client directly for mutations
-      const { ConvexHttpClient } = require('convex/browser');
-      const client = new ConvexHttpClient(convexUrl);
-      
-      // Try to import API (may not be available if Convex not set up)
+      let ConvexHttpClient: any;
       let api: any;
+      
       try {
-        api = require('../../convex/_generated/api');
-      } catch {
-        // Convex API not generated yet
+        const convexModule = require('convex/browser');
+        ConvexHttpClient = convexModule?.ConvexHttpClient;
+        if (!ConvexHttpClient) {
+          console.debug('ConvexHttpClient not available');
+          return;
+        }
+      } catch (convexError: any) {
+        console.debug('Convex client not available:', convexError.message);
         return;
       }
+      
+      // Try to import API (may not be available if Convex not set up)
+      try {
+        api = require('../../convex/_generated/api');
+      } catch (apiError: any) {
+        // Convex API not generated yet - try alternative path
+        try {
+          api = require('../convex/_generated/api');
+        } catch {
+          // Try from current directory
+          try {
+            api = require('../../../convex/_generated/api');
+          } catch {
+            console.debug('Convex API not generated. Run `npx convex dev` to generate.');
+            return;
+          }
+        }
+      }
+      
+      const client = new ConvexHttpClient(convexUrl);
 
       // Parse location if it's a string
       let locationObj = undefined;

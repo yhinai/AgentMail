@@ -3,8 +3,31 @@
 // For now, it uses the generated server helpers
 // After Convex setup, move this to: convex/mutations.ts and convex/queries.ts
 
-import { mutation, query } from '../convex/_generated/server';
-import { v } from 'convex/values';
+// Dynamically import to avoid errors when Convex not set up
+let convexServer: any;
+let v: any;
+
+try {
+  convexServer = require('../convex/_generated/server');
+  v = require('convex/values').v;
+} catch {
+  try {
+    convexServer = require('../../convex/_generated/server');
+    v = require('convex/values').v;
+  } catch {
+    convexServer = null;
+    // Create mock v for when Convex is not set up
+    v = {
+      string: () => ({ type: 'string' }),
+      number: () => ({ type: 'number' }),
+      optional: (validator: any) => ({ type: 'optional', validator }),
+      array: (validator: any) => ({ type: 'array', validator }),
+      object: (schema: any) => ({ type: 'object', schema })
+    };
+  }
+}
+
+const { mutation, query } = convexServer || { mutation: null, query: null };
 import type {
   TransactionSchema,
   ProductSchema,

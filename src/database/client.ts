@@ -16,8 +16,16 @@ try {
   // Try to import from generated convex directory
   api = require('../../convex/_generated/api');
 } catch {
-  // Fallback: API will be undefined, will use mock mode
-  console.warn('Convex API not generated. Run `npx convex dev` to generate.');
+  try {
+    api = require('../convex/_generated/api');
+  } catch {
+    try {
+      api = require('../../../convex/_generated/api');
+    } catch {
+      // Fallback: API will be undefined, will use mock mode
+      console.debug('Convex API not generated. Run `npx convex dev` to generate.');
+    }
+  }
 }
 
 export class DatabaseClient {
