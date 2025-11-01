@@ -81,8 +81,11 @@ export interface ScrapedItem {
   seller: {
     id: string;
     name?: string;
+    email?: string;
+    phone?: string;
     rating?: number;
     responseTime?: string;
+    platform?: string;
   };
   condition?: 'new' | 'like-new' | 'good' | 'fair' | 'poor';
   category: string;

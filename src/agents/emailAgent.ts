@@ -352,7 +352,7 @@ Buyer's offer: ${analysis.price ? `$${analysis.price}` : 'No specific offer'}
 Intent: ${analysis.intent}
 Urgency: ${analysis.urgency}
 
-${marketData ? `Market average price: $${marketData.average}` : ''}
+${marketData ? `Market average price: $${marketData.averagePrice}` : ''}
 
 Generate a professional response email.`;
 

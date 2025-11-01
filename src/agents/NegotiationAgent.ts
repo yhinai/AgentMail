@@ -233,7 +233,7 @@ export class NegotiationAgent extends EventEmitter implements Agent {
     const profitMargin = analysis.profitMargin;
     const sellerType = analysis.sellerProfile?.type;
     
-    if (profitMargin > 50 && analysis.profitAnalysis && analysis.profitAnalysis.profitMargin > 50) {
+    if (profitMargin > 50 && analysis.opportunity.profitAnalysis && analysis.opportunity.profitAnalysis.profitMargin > 50) {
       return this.strategies.get('URGENT_CASH');
     } else if (sellerType === 'business') {
       return this.strategies.get('PROFESSIONAL_BUYER');
