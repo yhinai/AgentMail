@@ -102,6 +102,12 @@ export default function Dashboard() {
                 <p className="text-sm text-gray-500">Autonomous E-Commerce Agent</p>
               </div>
               <div className="flex items-center space-x-4">
+                <a
+                  href="/flip"
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Autonomous Flipping
+                </a>
                 <div className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-400'}`} />
                 <span className="text-sm text-gray-600">
                   {isRunning ? 'Running' : 'Stopped'}

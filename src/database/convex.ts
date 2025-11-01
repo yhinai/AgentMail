@@ -286,3 +286,152 @@ export const updateMetrics = mutation({
     }
   },
 });
+
+// Budget mutations and queries
+export const createBudget = mutation({
+  args: {
+    commandId: v.id('commands'),
+    totalBudget: v.number(),
+    spent: v.number(),
+    reserved: v.number(),
+    remaining: v.number(),
+    status: v.string(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const budgetId = await ctx.db.insert('budgets', {
+      commandId: args.commandId,
+      totalBudget: args.totalBudget,
+      spent: args.spent,
+      reserved: args.reserved,
+      remaining: args.remaining,
+      status: args.status,
+      createdAt: Date.now(),
+      expiresAt: args.expiresAt,
+    });
+    return budgetId;
+  },
+});
+
+export const getBudget = query({
+  args: { id: v.id('budgets') },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const updateBudget = mutation({
+  args: {
+    id: v.id('budgets'),
+    spent: v.optional(v.number()),
+    reserved: v.optional(v.number()),
+    remaining: v.optional(v.number()),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, updates);
+  },
+});
+
+// Command mutations and queries
+export const createCommand = mutation({
+  args: {
+    naturalLanguage: v.string(),
+    parsed: v.any(),
+    status: v.string(),
+    currentStep: v.string(),
+    budgetId: v.id('budgets'),
+    itemsFound: v.number(),
+    itemsPurchased: v.number(),
+    itemsListed: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const commandId = await ctx.db.insert('commands', {
+      naturalLanguage: args.naturalLanguage,
+      parsed: args.parsed,
+      status: args.status,
+      currentStep: args.currentStep,
+      budgetId: args.budgetId,
+      itemsFound: args.itemsFound,
+      itemsPurchased: args.itemsPurchased,
+      itemsListed: args.itemsListed,
+      createdAt: Date.now(),
+    });
+    return commandId;
+  },
+});
+
+export const getCommand = query({
+  args: { id: v.id('commands') },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const updateCommand = mutation({
+  args: {
+    id: v.id('commands'),
+    status: v.optional(v.string()),
+    currentStep: v.optional(v.string()),
+    itemsFound: v.optional(v.number()),
+    itemsPurchased: v.optional(v.number()),
+    itemsListed: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, updates);
+  },
+});
+
+// Approval mutations and queries
+export const createApproval = mutation({
+  args: {
+    commandId: v.id('commands'),
+    type: v.string(),
+    context: v.any(),
+    status: v.string(),
+    requestedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const approvalId = await ctx.db.insert('approvals', {
+      commandId: args.commandId,
+      type: args.type,
+      context: args.context,
+      status: args.status,
+      requestedAt: args.requestedAt,
+    });
+    return approvalId;
+  },
+});
+
+export const getApproval = query({
+  args: { id: v.id('approvals') },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const updateApproval = mutation({
+  args: {
+    id: v.id('approvals'),
+    status: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.string()),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, updates);
+  },
+});
+
+export const getPendingApprovals = query({
+  handler: async (ctx) => {
+    return await ctx.db
+      .query('approvals')
+      .filter((q) => q.eq(q.field('status'), 'pending'))
+      .collect();
+  },
+});
