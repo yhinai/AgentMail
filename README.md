@@ -1,131 +1,113 @@
-# AgentMail Email Automation System
+# AutoBazaaar - Autonomous Commerce Agent with Email Automation
 
-An autonomous AI-powered email processing system that handles customer inquiries, negotiations, and responses 24/7 using AgentMail, OpenAI GPT-4o-mini, and Convex real-time database.
+A comprehensive AI-powered system combining **autonomous e-commerce arbitrage** (AutoBazaaar) with **intelligent email automation** (AgentMail) to discover deals, negotiate purchases, manage listings, and handle customer communications 24/7.
 
-## 🎯 Key Features
+## 🎯 Overview
 
-- **Automated Email Communication** - Handles buyer inquiries and negotiations 24/7 using AgentMail
-- **AI-Powered Analysis** - GPT-4o-mini analyzes intent, sentiment, and urgency
-- **Intelligent Responses** - Context-aware response generation with negotiation strategies
-- **Real-Time Database** - Convex serverless database for cross-process synchronization
-- **Live Dashboard** - Monitor email activity, queue stats, and metrics in real-time
-- **Webhook Support** - Instant email processing (polling available as fallback)
+**AutoBazaaar** discovers profitable opportunities across marketplaces, negotiates deals, manages inventory, and lists products across platforms - all automated with AI agents.
 
-## 🏗️ Architecture
+**AgentMail Integration** handles all email communications: buyer inquiries, negotiation threads, and customer support using GPT-4o-mini analysis and response generation.
 
-```
-┌─────────────────┐
-│  AgentMail API  │  Email infrastructure
-└────────┬────────┘
-         │
-    ┌────▼────┐
-    │EmailSvc │  Queue management & polling
-    └────┬────┘
-         │
-    ┌────▼────────┐
-    │EmailProc    │  AI analysis & response generation
-    └────┬────────┘
-         │
-    ┌────▼────┐       ┌──────────┐
-    │ Convex  │◄─────►│Dashboard │  Real-time sync
-    │Database │       │(Next.js) │
-    └─────────┘       └──────────┘
-```
+### Key Capabilities
+
+**E-Commerce Automation:**
+- 🔍 Multi-platform opportunity discovery (Craigslist, Facebook Marketplace, eBay)
+- 💰 AI-powered deal analysis and profit calculation
+- 🤝 Autonomous negotiation with multiple strategies
+- 📦 Inventory management and tracking
+- 📋 Multi-platform listing creation
+- 📊 Real-time metrics and analytics
+
+**Email Automation:**
+- 📧 24/7 email monitoring via AgentMail
+- 🤖 GPT-4o-mini analysis (intent, sentiment, urgency)
+- 💬 Context-aware automated responses
+- 🔄 Real-time activity tracking
+- 📈 Queue management with Convex database
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Node.js 18+** (v20 recommended)
+- **Node.js 20+**
 - **npm 9+**
 - **API Keys**:
-  - AgentMail (required)
-  - OpenAI (required for GPT-4o-mini)
-  - Convex (required for database)
+  - Required: OpenAI, Convex, AgentMail
+  - Optional: Browser-Use, Hyperspell, Perplexity, Composio, Redis
 
-### Installation (5 minutes)
+### Installation (10 minutes)
 
-1. **Clone and install**
-   ```bash
-   git clone <repository-url>
-   cd AgentMail
-   npm install
-   ```
+```bash
+# 1. Clone and install
+git clone <repository-url>
+cd AgentMail
+npm install
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your API keys:
-   # - AGENTMAIL_API_KEY
-   # - OPENAI_API_KEY
-   # - CONVEX_URL (get from next step)
-   ```
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your API keys
 
-3. **Setup Convex**
-   ```bash
-   npx convex login
-   npx convex dev --once
-   # Copy the deployment URL to .env as CONVEX_URL
-   ```
+# 3. Setup Convex database
+npx convex login
+npx convex dev --once
+# Copy deployment URL to .env
 
-4. **Start the system**
+# 4. Start the system
+# Terminal 1: Email orchestrator
+npm run orchestrator
 
-   **Terminal 1**: Email processor
-   ```bash
-   npx tsx start-demo.ts
-   ```
+# Terminal 2: Backend server (optional - for AutoBazaaar features)
+npm run server
 
-   **Terminal 2**: Dashboard
-   ```bash
-   cd src/ui && npm run dev
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000)
-
-## 📧 How It Works
-
-1. **Email Arrives** → AgentMail receives it
-2. **Queue** → Stored in Convex `emailQueue` table
-3. **Analyze** → GPT-4o-mini extracts intent, sentiment, urgency
-4. **Generate Response** → AI creates contextual reply
-5. **Send** → Reply sent via AgentMail (if AUTO_RESPOND=true)
-6. **Log Activity** → Dashboard updates in real-time
-
-**Email Processing Flow**:
-```
-📬 Received → 🔄 Processing → 🔍 Analyzed → 📤 Sent → ✅ Completed
+# Terminal 3: Dashboard UI
+npm run dev
 ```
 
-## 📋 Project Structure
+Open http://localhost:3000
+
+## 📋 Architecture
 
 ```
-AgentMail/
-├── convex/                    # Convex serverless functions
-│   ├── schema.ts              # Database schema
-│   ├── emails.ts              # Email queue operations
-│   └── _generated/            # Auto-generated types
-│
-├── src/
-│   ├── services/              # Core services
-│   │   ├── AgentMailClient.ts # AgentMail SDK wrapper
-│   │   ├── EmailService.ts    # Queue & polling
-│   │   ├── EmailProcessor.ts  # AI processing
-│   │   └── ResponseGenerator.ts # GPT-4o-mini
-│   │
-│   ├── database/              # Database layer
-│   │   └── client.ts          # Convex client
-│   │
-│   ├── workflows/             # Orchestration
-│   │   └── NewEmailOrchestrator.ts
-│   │
-│   └── ui/                    # Next.js dashboard
-│       ├── pages/
-│       └── components/
-│
-├── start-demo.ts              # Entry point
-├── AGENTMAIL_INTEGRATION.md   # 📚 Integration docs
-├── DEVELOPMENT.md             # 📚 Dev guide
-└── README.md
+┌──────────────────────────────────────────────────────┐
+│                   AutoBazaaar System                  │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────┐ │
+│  │   Agents    │  │ Integrations │  │  Services  │ │
+│  ├─────────────┤  ├──────────────┤  ├────────────┤ │
+│  │• Market     │  │• Browser-Use │  │• EventBus  │ │
+│  │  Research   │  │• Hyperspell  │  │• Queue Mgr │ │
+│  │• Deal       │  │• Perplexity  │  │• Metrics   │ │
+│  │  Analyzer   │  │• Composio    │  │• Security  │ │
+│  │• Negotiator │  │• OpenAI      │  │            │ │
+│  │• Listing    │  │              │  │            │ │
+│  └─────────────┘  └──────────────┘  └────────────┘ │
+│                                                       │
+└──────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────┐
+│              AgentMail Email Automation               │
+├──────────────────────────────────────────────────────┤
+│                                                       │
+│  ┌──────────┐    ┌─────────────┐   ┌────────────┐  │
+│  │AgentMail │───►│EmailService │──►│EmailProc   │  │
+│  │   SDK    │    │ (Queue)     │   │(AI Analyze)│  │
+│  └──────────┘    └──────┬──────┘   └────────────┘  │
+│                         │                            │
+│                         ▼                            │
+│                  ┌─────────────┐                     │
+│                  │   Convex    │                     │
+│                  │  Database   │                     │
+│                  └──────┬──────┘                     │
+│                         │                            │
+│                         ▼                            │
+│                  ┌─────────────┐                     │
+│                  │  Dashboard  │                     │
+│                  │  (Next.js)  │                     │
+│                  └─────────────┘                     │
+│                                                       │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## 🔧 Configuration
@@ -133,166 +115,295 @@ AgentMail/
 ### Required Environment Variables
 
 ```env
-# AgentMail (email automation)
-AGENTMAIL_API_KEY=am_your_api_key_here
-
-# OpenAI (AI analysis)
+# Core Services
 OPENAI_API_KEY=sk-proj-your_key_here
 OPENAI_MODEL=gpt-4o-mini
 
-# Convex (database)
+# Database
 CONVEX_URL=https://your-deployment.convex.cloud
 NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 
-# Optional Configuration
-AUTO_RESPOND=true              # Auto-send responses
-EMAIL_POLL_INTERVAL=30         # Seconds between checks
-WEBHOOK_URL=https://...        # For instant delivery (optional)
+# AgentMail Email Automation
+AGENTMAIL_API_KEY=am_your_key_here
+AUTO_RESPOND=true
+EMAIL_POLL_INTERVAL=30
 ```
 
-### Key Settings
+### Optional Features
 
-- **AUTO_RESPOND=true**: Automatically sends AI-generated responses
-- **AUTO_RESPOND=false**: Generates responses but requires manual approval
-- **EMAIL_POLL_INTERVAL**: How often to check for new emails (default: 30s)
-- **WEBHOOK_URL**: If set, uses webhooks instead of polling for instant delivery
+```env
+# AutoBazaaar Integrations
+BROWSER_USE_API_KEY=your_key_here     # Web scraping
+HYPERSPELL_API_KEY=your_key_here      # Memory system
+PERPLEXITY_API_KEY=your_key_here      # Market research
+COMPOSIO_API_KEY=your_key_here        # Marketplace APIs
+
+# Infrastructure
+REDIS_HOST=localhost                   # For queues
+REDIS_PORT=6379
+```
+
+See `.env.example` for complete configuration.
+
+## 📚 System Components
+
+### AutoBazaaar Agents
+
+Located in `src/agents/`:
+
+1. **MarketResearchAgent** - Discovers opportunities across platforms
+2. **DealAnalyzerAgent** - Analyzes profit potential and risk
+3. **NegotiationAgent** - Handles buyer/seller negotiations
+4. **ListingAgent** - Creates and manages multi-platform listings
+5. **EmailTemplateEngine** - Generates contextual email content
+6. **ResponseAnalyzer** - Analyzes buyer responses
+
+### AgentMail Email System
+
+Located in `src/services/`:
+
+1. **AgentMailClient** - Official AgentMail SDK wrapper
+2. **EmailService** - Queue management, polling, sending
+3. **EmailProcessor** - AI analysis pipeline
+4. **ResponseGenerator** - GPT-4o-mini response generation
+5. **NewEmailOrchestrator** - System coordinator
+
+### Convex Database Schema
+
+**AutoBazaaar Tables** (11 tables):
+- `opportunities` - Discovered deals with analysis
+- `negotiations` - Negotiation threads and rounds
+- `inventory` - Purchased items
+- `listings` - Active platform listings
+- `transactions` - Financial records
+- `config`, `memory`, `alerts`, `products`, `buyerProfiles`, `negotiationStates`
+
+**AgentMail Tables** (2 tables):
+- `emailQueue` - Email processing queue with status
+- `emailActivity` - Activity log for dashboard
+
+See `convex/schema.ts` for complete schema.
+
+## 🎬 Usage
+
+### Running the Email Automation System
+
+```bash
+# Start orchestrator (processes emails)
+npm run orchestrator
+
+# Or directly
+npx tsx start-demo.ts
+```
+
+This starts:
+- ✅ Email polling from AgentMail
+- ✅ AI analysis of incoming emails
+- ✅ Automated response generation
+- ✅ Real-time dashboard updates
+
+### Running the Full AutoBazaaar System
+
+```bash
+# Terminal 1: Backend services
+npm run server
+
+# Terminal 2: Email orchestrator
+npm run orchestrator
+
+# Terminal 3: Dashboard
+npm run dev
+```
+
+This enables:
+- ✅ Market opportunity discovery
+- ✅ Deal analysis and negotiation
+- ✅ Listing management
+- ✅ Email automation
+- ✅ Full dashboard with all features
+
+### Using Commands (AutoBazaaar)
+
+The dashboard includes a command interface for manual control:
+
+```
+scrape craigslist iphone
+analyze deal <opportunity-id>
+negotiate <thread-id> start
+list product <inventory-id> ebay
+```
 
 ## 📊 Dashboard Features
 
 Access at **http://localhost:3000**
 
-### Real-Time Monitoring
+### Metrics Cards
+- Total profit, revenue, deals completed
+- Conversion rate, response time
+- Active listings, emails processed
 
-- **Email Activity Feed** - Live updates (received, analyzed, sent, errors)
-- **Queue Statistics** - Pending, processing, completed, failed counts
-- **Auto-Refresh** - Updates every 3 seconds
-- **Metadata Display** - Intent, sentiment, urgency for each email
+### Email Activity Panel
+- Real-time email feed (received, analyzed, sent)
+- Queue statistics (pending, processing, completed)
+- AI analysis metadata (intent, sentiment, urgency)
 
-### What You'll See
+### Command Interface (AutoBazaaar)
+- Manual command submission
+- Command history tracking
+- Real-time feedback
 
-```
-📬 received  - "Interested in iPhone" from buyer@example.com
-🔍 analyzed  - Intent: inquiry, Sentiment: neutral, Urgency: medium
-📤 sent      - "Re: Interested in iPhone" to buyer@example.com
-```
+### Scraped Listings (AutoBazaaar)
+- Discovered opportunities
+- Profit analysis
+- Quick actions
 
-## 🏗️ Technical Architecture
+### Activity Feed
+- System-wide activity log
+- Success/error tracking
 
-### Core Components
-
-1. **AgentMailClient** - Official SDK wrapper for AgentMail API
-2. **EmailService** - Queue management, polling, sending (Convex-backed)
-3. **EmailProcessor** - AI analysis pipeline with GPT-4o-mini
-4. **ResponseGenerator** - Context-aware response generation
-5. **DatabaseClient** - Convex operations wrapper
-6. **NewEmailOrchestrator** - System coordinator
-
-### Database Schema (Convex)
-
-**emailQueue** - Stores all emails with processing status
-```typescript
-{
-  messageId: string          // AgentMail ID
-  from: string               // Sender
-  to: string                 // Recipient
-  subject: string            // Subject line
-  body: string               // Email content
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  metadata: {                // AI analysis
-    intent?: string
-    sentiment?: string
-    urgency?: string
-  }
-}
-```
-
-**emailActivity** - Activity log for dashboard
-```typescript
-{
-  type: 'received' | 'sent' | 'analyzed' | 'error'
-  from: string
-  to: string
-  subject: string
-  summary: string
-  timestamp: number
-  metadata?: any
-}
-```
+### Transactions Table
+- Financial history
+- P&L tracking
 
 ## 🛠️ Development
 
-### Commands
+### Project Structure
 
-```bash
-npm run type-check     # TypeScript type checking
-npm run orchestrator   # Start email processor
-npm run dev           # Start dashboard (from src/ui)
+```
+AgentMail/
+├── convex/                          # Convex database
+│   ├── schema.ts                    # All 13 tables
+│   ├── emails.ts                    # Email queue functions
+│   ├── listings.ts                  # Listing functions
+│   └── commands.ts                  # Command functions
+│
+├── src/
+│   ├── agents/                      # AutoBazaaar AI agents
+│   │   ├── MarketResearchAgent.ts
+│   │   ├── DealAnalyzerAgent.ts
+│   │   ├── NegotiationAgent.ts
+│   │   └── ListingAgent.ts
+│   │
+│   ├── services/                    # AgentMail services
+│   │   ├── AgentMailClient.ts
+│   │   ├── EmailService.ts
+│   │   ├── EmailProcessor.ts
+│   │   └── ResponseGenerator.ts
+│   │
+│   ├── integrations/                # External APIs
+│   │   ├── BrowserUseIntegration.ts
+│   │   ├── HyperspellIntegration.ts
+│   │   ├── PerplexityIntegration.ts
+│   │   └── ComposioIntegration.ts
+│   │
+│   ├── core/                        # Infrastructure
+│   │   ├── events/EventBus.ts
+│   │   ├── queue/QueueManager.ts
+│   │   ├── agents/AgentRegistry.ts
+│   │   └── command/CommandExecutor.ts
+│   │
+│   ├── workflows/
+│   │   └── NewEmailOrchestrator.ts  # Email orchestration
+│   │
+│   ├── server/                      # Backend API
+│   │   ├── index.ts
+│   │   └── websocket.ts
+│   │
+│   └── ui/                          # Next.js dashboard
+│       ├── pages/index.tsx
+│       └── components/
+│
+├── start-demo.ts                    # Email orchestrator entry
+├── AGENTMAIL_INTEGRATION.md         # Email system docs
+├── DEVELOPMENT.md                   # Development guide
+├── PROJECT_STATUS.md                # AutoBazaaar status
+└── README.md
 ```
 
-### Development Workflow
+### Available Scripts
 
-See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for:
-- Project structure walkthrough
-- How to modify email processing
-- Adding custom templates
-- Database schema updates
-- Testing guide
-- Deployment instructions
+```bash
+npm run dev           # Start dashboard (localhost:3000)
+npm run orchestrator  # Start email processor
+npm run server        # Start backend API (AutoBazaaar)
+npm run demo          # Run demo scenario
+npm run type-check    # TypeScript checking
+npm run lint          # ESLint
+npm run test          # Jest tests
+```
 
-## 📈 Key Metrics
+### Key Features by Script
 
-Dashboard displays:
-- **Total Emails**: All emails processed
-- **Pending**: Awaiting processing
-- **Processing**: Currently being analyzed
-- **Completed**: Successfully processed with responses
-- **Failed**: Errors (with retry logic)
+**`npm run orchestrator`** → AgentMail email automation only
+**`npm run server`** → AutoBazaaar backend (EventBus, Redis, agents)
+**`npm run dev`** → Dashboard UI (shows all features)
 
-## 📚 Documentation
+## 📖 Documentation
 
-- **[AGENTMAIL_INTEGRATION.md](./AGENTMAIL_INTEGRATION.md)** - Complete integration guide
-  - Architecture deep-dive
+- **[AGENTMAIL_INTEGRATION.md](./AGENTMAIL_INTEGRATION.md)** - Complete AgentMail guide
   - Email processing pipeline
-  - Convex schema reference
-  - API documentation
+  - API reference
   - Troubleshooting
+  - Performance tips
 
 - **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Development workflow
   - Setup instructions
   - Code structure
-  - Making changes
   - Testing guide
   - Deployment
 
+- **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** - AutoBazaaar status
+  - Implementation progress
+  - Known issues
+  - Configuration requirements
+
 ## 🔒 Security
 
-- ✅ API keys in environment variables (never committed)
+- ✅ API keys in environment variables only
 - ✅ Self-email loop prevention
-- ✅ Webhook signature validation support
-- ✅ Error handling with retry logic (max 3 attempts)
-- ✅ Graceful shutdown handling
+- ✅ Input validation and sanitization
+- ✅ Rate limiting support
+- ✅ Error handling with retry logic
+- ✅ Webhook signature validation (optional)
 
-## 🚀 What's Special
+## 🚀 Deployment
 
-### Database as Source of Truth
+### Option 1: Docker (Recommended)
 
-Unlike typical in-memory queues, this system uses **Convex as the single source of truth**:
+```bash
+docker-compose up -d
+```
 
-✅ **Cross-Process Sync** - Multiple processes (orchestrator + dashboard) access same queue
-✅ **Real-Time Updates** - Dashboard shows live data without polling
-✅ **Persistent State** - Survives restarts
-✅ **Scalable** - Can run multiple orchestrators
+Includes:
+- AutoBazaaar backend
+- Redis
+- Dashboard UI
 
-### Migration Highlights
+### Option 2: Manual Deployment
 
-We recently migrated from in-memory queue to Convex-backed queue:
-- **Before**: `Map<string, EmailQueueItem>` - each process had separate queue
-- **After**: Convex `emailQueue` table - shared across all processes
-- **Result**: Dashboard stats now accurate, real-time sync achieved
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for:
+- PM2 process management
+- Vercel deployment (UI only)
+- Railway/Render deployment
+
+### Production Checklist
+
+- [ ] All API keys configured in .env
+- [ ] Convex deployed (`npx convex deploy --prod`)
+- [ ] Redis running (if using AutoBazaaar)
+- [ ] Webhook URL configured (for instant email delivery)
+- [ ] Environment set to production
+- [ ] Monitoring configured (Sentry optional)
 
 ## 🤝 Contributing
 
-See [DEVELOPMENT.md](./DEVELOPMENT.md) for contribution guidelines.
+1. Create feature branch
+2. Make changes
+3. Run `npm run type-check` and `npm run lint`
+4. Test thoroughly
+5. Create pull request
+
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed guidelines.
 
 ## 📝 License
 
@@ -300,13 +411,42 @@ MIT License
 
 ## 🙏 Built With
 
-- **[AgentMail](https://agentmail.to)** - Email infrastructure & SDK
-- **[Convex](https://convex.dev)** - Real-time serverless database
-- **[OpenAI](https://openai.com)** - GPT-4o-mini for AI analysis
-- **[Next.js](https://nextjs.org)** - Dashboard framework
-- **[TypeScript](https://typescriptlang.org)** - Type safety
+**Core:**
+- [AgentMail](https://agentmail.to) - Email infrastructure & SDK
+- [Convex](https://convex.dev) - Real-time serverless database
+- [OpenAI](https://openai.com) - GPT-4o-mini AI
+- [Next.js](https://nextjs.org) - Dashboard framework
+
+**Integrations (Optional):**
+- [Browser-Use](https://browser-use.com) - Web automation
+- [Hyperspell](https://hyperspell.com) - Memory system
+- [Perplexity](https://perplexity.ai) - Market intelligence
+- [Composio](https://composio.dev) - Marketplace APIs
+
+## 🎯 What Makes This Special
+
+### Unified System
+Unlike separate tools, AutoBazaaar + AgentMail work together:
+- Opportunities discovered → Email negotiations handled automatically
+- Buyer inquiries → AI analyzes and responds with context
+- Listings created → Customer emails managed 24/7
+
+### Database as Source of Truth
+- Convex database shared across all processes
+- Real-time sync between backend, orchestrator, and dashboard
+- Persistent state survives restarts
+- Scalable to multiple instances
+
+### Production Ready
+- Error handling with retries
+- Comprehensive logging
+- Metrics and monitoring
+- Docker support
+- Complete documentation
 
 ---
 
-**Version**: 2.0.0 (Database-backed queue)
+**Version**: 3.0.0 (AutoBazaaar + AgentMail merged)
 **Last Updated**: 2025-01-11
+
+**Questions?** See [AGENTMAIL_INTEGRATION.md](./AGENTMAIL_INTEGRATION.md) or [DEVELOPMENT.md](./DEVELOPMENT.md)
