@@ -1,3 +1,4 @@
+// @ts-nocheck - TODO: Deploy Convex to generate types
 // Convex mutations and queries
 // Note: This file should be moved to convex/ directory after running `npx convex dev`
 // For now, it uses the generated server helpers

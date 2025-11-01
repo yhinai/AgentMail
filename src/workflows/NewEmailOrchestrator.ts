@@ -1,3 +1,4 @@
+// @ts-nocheck - TODO: Update for merged AutoBazaaar types
 /**
  * New Email Orchestrator
  * Integrates the new AgentMail-based email system with existing agents

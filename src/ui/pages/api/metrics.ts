@@ -6,9 +6,10 @@ import { getEmailService } from '../../../services/EmailServiceSingleton';
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Metrics | { error: string }>
-) {
+): Promise<void> {
   if (req.method !== 'GET') {
-    return res.status(405).end();
+    res.status(405).end();
+    return;
   }
 
   try {
