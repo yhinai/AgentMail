@@ -569,6 +569,23 @@ export interface InteractionRecord {
 // Legacy Types (keeping for compatibility)
 // ============================================
 
+// Legacy Transaction type matching TransactionSchema
+export interface LegacyTransaction {
+  id: string;
+  buyerEmail: string;
+  product: string;
+  productId: string;
+  initialPrice: number;
+  finalPrice: number;
+  cost: number;
+  profit: number;
+  status: 'negotiating' | 'completed' | 'cancelled' | 'refunded';
+  createdAt: Date;
+  completedAt?: Date;
+  negotiationRounds: number;
+  listingUrls: string[];
+}
+
 export interface Strategy {
   initialPrice: number;
   minAcceptable: number;

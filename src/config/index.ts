@@ -21,12 +21,12 @@ interface Config {
   };
   
   openai: {
-    apiKey: string;
+    apiKey?: string;
     model: string;
   };
   
   agentMail: {
-    apiKey: string;
+    apiKey?: string;
     apiUrl: string;
     fromEmail: string;
     fromName: string;
@@ -34,23 +34,23 @@ interface Config {
   };
   
   browserUse: {
-    apiKey: string;
+    apiKey?: string;
     apiUrl: string;
   };
   
   hyperspell: {
-    apiKey: string;
+    apiKey?: string;
     apiUrl: string;
     namespace: string;
   };
   
   perplexity: {
-    apiKey: string;
+    apiKey?: string;
     apiUrl: string;
   };
   
   composio: {
-    apiKey: string;
+    apiKey?: string;
     apiUrl: string;
   };
   
@@ -89,6 +89,11 @@ function getEnv(key: string, defaultValue?: string): string {
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value || defaultValue!;
+}
+
+function getEnvOptional(key: string, defaultValue?: string): string | undefined {
+  const value = process.env[key];
+  return value || defaultValue;
 }
 
 function getEnvNumber(key: string, defaultValue: number): number {
@@ -138,12 +143,12 @@ export const config: Config = {
   },
   
   openai: {
-    apiKey: getEnv('OPENAI_API_KEY'),
+    apiKey: getEnvOptional('OPENAI_API_KEY'),
     model: getEnv('OPENAI_MODEL', 'gpt-4-turbo-preview')
   },
   
   agentMail: {
-    apiKey: getEnv('AGENTMAIL_API_KEY'),
+    apiKey: getEnvOptional('AGENTMAIL_API_KEY'),
     apiUrl: getEnv('AGENTMAIL_API_URL', 'https://api.agentmail.com/v1'),
     fromEmail: getEnv('AGENTMAIL_FROM_EMAIL', 'deals@autobazaaar.com'),
     fromName: getEnv('AGENTMAIL_FROM_NAME', 'Alex from AutoBazaaar'),
@@ -151,23 +156,23 @@ export const config: Config = {
   },
   
   browserUse: {
-    apiKey: getEnv('BROWSER_USE_API_KEY'),
+    apiKey: getEnvOptional('BROWSER_USE_API_KEY'),
     apiUrl: getEnv('BROWSER_USE_API_URL', 'https://api.browser-use.com/v1')
   },
   
   hyperspell: {
-    apiKey: getEnv('HYPERSPELL_API_KEY'),
+    apiKey: getEnvOptional('HYPERSPELL_API_KEY'),
     apiUrl: getEnv('HYPERSPELL_API_URL', 'https://api.hyperspell.com'),
     namespace: getEnv('HYPERSPELL_NAMESPACE', 'negotiations')
   },
   
   perplexity: {
-    apiKey: getEnv('PERPLEXITY_API_KEY'),
+    apiKey: getEnvOptional('PERPLEXITY_API_KEY'),
     apiUrl: getEnv('PERPLEXITY_API_URL', 'https://api.perplexity.ai')
   },
   
   composio: {
-    apiKey: getEnv('COMPOSIO_API_KEY'),
+    apiKey: getEnvOptional('COMPOSIO_API_KEY'),
     apiUrl: getEnv('COMPOSIO_API_URL', 'https://api.composio.dev')
   },
   

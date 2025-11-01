@@ -310,7 +310,7 @@ export class MarketResearchAgent implements Agent {
         return items;
       });
       
-      return listings.map(item => this.validateScrapedItem(item));
+      return listings.map((item: any) => this.validateScrapedItem(item));
       
     } catch (error) {
       console.error('Craigslist scraping error:', error);
@@ -379,7 +379,7 @@ export class MarketResearchAgent implements Agent {
         return items;
       });
       
-      return listings.slice(0, task.limit).map(item => this.validateScrapedItem(item));
+      return listings.slice(0, task.limit).map((item: any) => this.validateScrapedItem(item));
       
     } catch (error) {
       console.error('eBay scraping error:', error);

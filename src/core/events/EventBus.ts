@@ -83,7 +83,9 @@ export class EventBus extends EventEmitter {
     // Limit event store size (keep last 1000 events)
     if (this.eventStore.size > 1000) {
       const firstKey = this.eventStore.keys().next().value;
-      this.eventStore.delete(firstKey);
+      if (firstKey) {
+        this.eventStore.delete(firstKey);
+      }
     }
     
     // Local emission
