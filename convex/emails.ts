@@ -202,3 +202,21 @@ export const getByThreadId = query({
     return emails;
   },
 });
+
+/**
+ * Get queue statistics
+ */
+export const getQueueStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const allEmails = await ctx.db.query('emailQueue').collect();
+
+    return {
+      total: allEmails.length,
+      pending: allEmails.filter((e) => e.status === 'pending').length,
+      processing: allEmails.filter((e) => e.status === 'processing').length,
+      completed: allEmails.filter((e) => e.status === 'completed').length,
+      failed: allEmails.filter((e) => e.status === 'failed').length,
+    };
+  },
+});

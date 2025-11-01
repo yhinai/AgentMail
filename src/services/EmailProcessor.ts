@@ -49,14 +49,14 @@ export class EmailProcessor {
 
     try {
       // Mark as processing
-      this.emailService.updateEmailStatus(email.id, 'processing');
+      await this.emailService.updateEmailStatus(email.id, 'processing');
 
       // Step 1: Analyze email with AI
       const analysis = await this.analyzeEmail(email);
       console.log(`   ✅ Analysis: ${analysis.intent} (confidence: ${analysis.confidence})`);
 
       // Update metadata
-      this.emailService.updateEmailStatus(email.id, 'processing', undefined, {
+      await this.emailService.updateEmailStatus(email.id, 'processing', undefined, {
         intent: analysis.intent,
         sentiment: analysis.sentiment,
         urgency: analysis.urgency,
@@ -82,7 +82,7 @@ export class EmailProcessor {
       await this.recordInteraction(email, analysis, response);
 
       // Mark as completed
-      this.emailService.updateEmailStatus(email.id, 'completed');
+      await this.emailService.updateEmailStatus(email.id, 'completed');
 
       return {
         emailId: email.id,
@@ -96,7 +96,7 @@ export class EmailProcessor {
       console.error(`   ❌ Processing failed:`, error.message);
 
       // Mark as failed with retry
-      this.emailService.updateEmailStatus(email.id, 'failed', error.message);
+      await this.emailService.updateEmailStatus(email.id, 'failed', error.message);
 
       // Retry if under limit
       if (email.retryCount < 3) {
@@ -344,7 +344,7 @@ export class EmailProcessor {
    * Process all pending emails in queue
    */
   async processPendingEmails(limit: number = 5): Promise<ProcessedEmail[]> {
-    const pending = this.emailService.getPendingEmails(limit);
+    const pending = await this.emailService.getPendingEmails(limit);
 
     if (pending.length === 0) {
       return [];

@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import type { Metrics } from '../../../types';
 import { getEmailService } from '../../../services/EmailServiceSingleton';
 
-export default function handler(
+export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Metrics>
 ) {
@@ -13,7 +13,7 @@ export default function handler(
   try {
     // Get real email service data
     const emailService = getEmailService();
-    const stats = emailService.getQueueStats();
+    const stats = await emailService.getQueueStats();
 
     // Return metrics with real email data
     const metrics: Metrics = {

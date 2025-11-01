@@ -374,6 +374,8 @@ export class NewEmailOrchestrator {
       const transactions = await this.db.getAllTransactions();
       const completed = transactions.filter(t => t.status === 'completed');
 
+      const queueStats = await this.emailService.getQueueStats();
+
       const metrics: Metrics = {
         dealsCompleted: completed.length,
         totalProfit: completed.reduce((sum, t) => sum + t.profit, 0),
@@ -384,7 +386,7 @@ export class NewEmailOrchestrator {
           ? completed.reduce((sum, t) => sum + t.negotiationRounds, 0) / completed.length
           : 0,
         activeListings: 0, // In real system, count active listings
-        emailsProcessed: this.emailService.getQueueStats().total,
+        emailsProcessed: queueStats.total,
         lastUpdated: Date.now(),
       };
 
@@ -434,7 +436,7 @@ export class NewEmailOrchestrator {
   /**
    * Get queue statistics
    */
-  getQueueStats() {
-    return this.emailService.getQueueStats();
+  async getQueueStats() {
+    return await this.emailService.getQueueStats();
   }
 }

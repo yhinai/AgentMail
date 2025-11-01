@@ -42,7 +42,6 @@ export class EmailService extends EventEmitter {
   private client: AgentMailClient;
   private db: DatabaseClient;
   private inbox?: Inbox;
-  private queue: Map<string, EmailQueueItem> = new Map();
   private activityLog: EmailActivity[] = [];
   private isProcessing: boolean = false;
   private processingInterval?: NodeJS.Timeout;
@@ -91,28 +90,17 @@ export class EmailService extends EventEmitter {
   /**
    * Add email to processing queue
    */
-  queueEmail(email: Omit<EmailQueueItem, 'id' | 'status' | 'retryCount'>): string {
-    const id = `email_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const queueItem: EmailQueueItem = {
-      id,
-      ...email,
-      status: 'pending',
-      retryCount: 0,
-    };
-
-    this.queue.set(id, queueItem);
-
-    // Write to Convex database
-    this.db.queueEmail({
+  async queueEmail(email: Omit<EmailQueueItem, 'id' | 'status' | 'retryCount'>): Promise<string> {
+    // Write to Convex database as source of truth
+    const emailId = await this.db.queueEmail({
       messageId: email.messageId,
       threadId: email.threadId,
       from: email.from,
       to: email.to,
       subject: email.subject,
       body: email.body,
-      priority: email.priority,
-    }).catch(err => console.warn('⚠️  Failed to queue email in DB:', err.message));
+      priority: email.priority || 'medium',
+    });
 
     // Log activity
     this.logActivity({
@@ -123,20 +111,26 @@ export class EmailService extends EventEmitter {
       summary: `Email received and queued for processing`,
     });
 
-    // Emit event
+    // Emit event with DB email data
+    const queueItem: EmailQueueItem = {
+      id: emailId,
+      ...email,
+      status: 'pending',
+      retryCount: 0,
+    };
     this.emit('email:queued', queueItem);
 
     console.log(`📬 Email queued: ${email.subject} (from: ${email.from})`);
-    return id;
+    return emailId;
   }
 
   /**
    * Process incoming webhook email
    */
-  handleWebhookEmail(webhookData: any): string {
+  async handleWebhookEmail(webhookData: any): Promise<string> {
     const { message, inbox_id } = webhookData;
 
-    return this.queueEmail({
+    return await this.queueEmail({
       messageId: message.message_id,
       threadId: message.thread_id,
       from: message.from,
@@ -151,37 +145,45 @@ export class EmailService extends EventEmitter {
   /**
    * Get pending emails from queue
    */
-  getPendingEmails(limit: number = 10): EmailQueueItem[] {
-    return Array.from(this.queue.values())
-      .filter(item => item.status === 'pending')
-      .sort((a, b) => {
-        // Priority: high > medium > low
-        const priorityMap = { high: 3, medium: 2, low: 1 };
-        return priorityMap[b.priority] - priorityMap[a.priority];
-      })
-      .slice(0, limit);
+  async getPendingEmails(limit: number = 10): Promise<EmailQueueItem[]> {
+    const emails = await this.db.getPendingEmails(limit);
+
+    // Convert DB format to EmailQueueItem format
+    return emails.map((email: any) => ({
+      id: email._id,
+      messageId: email.messageId,
+      threadId: email.threadId,
+      from: email.from,
+      to: email.to,
+      subject: email.subject,
+      body: email.body,
+      receivedAt: new Date(email.receivedAt),
+      status: email.status,
+      priority: email.priority,
+      retryCount: email.retryCount,
+      error: email.error,
+      metadata: email.metadata,
+    }));
   }
 
   /**
    * Update email status in queue
    */
-  updateEmailStatus(
+  async updateEmailStatus(
     emailId: string,
     status: EmailQueueItem['status'],
     error?: string,
     metadata?: EmailQueueItem['metadata']
-  ): void {
-    const item = this.queue.get(emailId);
-    if (!item) return;
+  ): Promise<void> {
+    // Update in database
+    await this.db.updateEmailStatus(emailId, status, error, metadata);
 
-    item.status = status;
-    if (error) item.error = error;
-    if (metadata) item.metadata = { ...item.metadata, ...metadata };
+    // Get updated email for event emission
+    const item = await this.db.getEmailByMessageId(emailId);
 
-    this.queue.set(emailId, item);
     this.emit('email:status', { emailId, status, error, metadata });
 
-    if (status === 'failed') {
+    if (status === 'failed' && item) {
       this.logActivity({
         type: 'error',
         from: item.from,
@@ -189,14 +191,14 @@ export class EmailService extends EventEmitter {
         subject: item.subject,
         summary: `Email processing failed: ${error}`,
       });
-    } else if (status === 'completed') {
+    } else if (status === 'completed' && item) {
       this.logActivity({
         type: 'analyzed',
         from: item.from,
         to: item.to,
         subject: item.subject,
         summary: `Email processed successfully`,
-        metadata: item.metadata,
+        metadata: item.metadata || metadata,
       });
     }
   }
@@ -204,8 +206,10 @@ export class EmailService extends EventEmitter {
   /**
    * Retry failed email
    */
-  retryEmail(emailId: string): void {
-    const item = this.queue.get(emailId);
+  async retryEmail(emailId: string): Promise<void> {
+    // Note: DatabaseClient needs incrementRetry method
+    // For now, we'll just update status back to pending
+    const item = await this.db.getEmailByMessageId(emailId);
     if (!item) return;
 
     if (item.retryCount >= 3) {
@@ -213,14 +217,11 @@ export class EmailService extends EventEmitter {
       return;
     }
 
-    item.retryCount++;
-    item.status = 'pending';
-    item.error = undefined;
+    await this.db.updateEmailStatus(emailId, 'pending');
 
-    this.queue.set(emailId, item);
     this.emit('email:retry', item);
 
-    console.log(`🔄 Retrying email (attempt ${item.retryCount}): ${item.subject}`);
+    console.log(`🔄 Retrying email (attempt ${item.retryCount + 1}): ${item.subject}`);
   }
 
   // ============================================
@@ -385,7 +386,7 @@ export class EmailService extends EventEmitter {
     console.log('🔄 Starting email queue processing...');
 
     this.processingInterval = setInterval(async () => {
-      const pending = this.getPendingEmails(5);
+      const pending = await this.getPendingEmails(5);
 
       for (const email of pending) {
         this.emit('email:process', email);
@@ -467,7 +468,7 @@ export class EmailService extends EventEmitter {
         newCount++;
 
         // Queue for processing
-        this.queueEmail({
+        await this.queueEmail({
           messageId: message.message_id,
           threadId: message.thread_id,
           from: message.from,
@@ -504,16 +505,8 @@ export class EmailService extends EventEmitter {
   // STATISTICS
   // ============================================
 
-  getQueueStats() {
-    const items = Array.from(this.queue.values());
-
-    return {
-      total: items.length,
-      pending: items.filter(i => i.status === 'pending').length,
-      processing: items.filter(i => i.status === 'processing').length,
-      completed: items.filter(i => i.status === 'completed').length,
-      failed: items.filter(i => i.status === 'failed').length,
-    };
+  async getQueueStats() {
+    return await this.db.getQueueStats();
   }
 
   // ============================================
@@ -524,7 +517,6 @@ export class EmailService extends EventEmitter {
     console.log('🛑 Shutting down Email Service...');
     this.stopProcessing();
     this.stopPolling();
-    this.queue.clear();
     this.activityLog = [];
     this.removeAllListeners();
   }

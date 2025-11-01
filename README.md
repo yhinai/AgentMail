@@ -1,221 +1,312 @@
-# ProfitPilot - Autonomous AI Agent for E-Commerce
+# AgentMail Email Automation System
 
-An AI agent that autonomously sources, lists, negotiates, and sells products across multiple platforms while maximizing profit margins through intelligent market analysis and customer engagement.
+An autonomous AI-powered email processing system that handles customer inquiries, negotiations, and responses 24/7 using AgentMail, OpenAI GPT-4o-mini, and Convex real-time database.
 
 ## 🎯 Key Features
 
 - **Automated Email Communication** - Handles buyer inquiries and negotiations 24/7 using AgentMail
-- **Multi-Platform Listings** - Creates listings on Craigslist, Facebook Marketplace, and eBay using Browser-Use
-- **Intelligent Negotiation** - Context-aware negotiation using Hyperspell memory system
-- **Market Intelligence** - Real-time pricing analysis using Perplexity API
-- **Real-Time Dashboard** - Monitor metrics and activity with Next.js dashboard
-- **Full Autonomy** - Runs without human intervention
+- **AI-Powered Analysis** - GPT-4o-mini analyzes intent, sentiment, and urgency
+- **Intelligent Responses** - Context-aware response generation with negotiation strategies
+- **Real-Time Database** - Convex serverless database for cross-process synchronization
+- **Live Dashboard** - Monitor email activity, queue stats, and metrics in real-time
+- **Webhook Support** - Instant email processing (polling available as fallback)
 
 ## 🏗️ Architecture
 
 ```
-ProfitPilot
-├── EmailAgent (AgentMail) - Buyer communication
-├── BrowserAgent (Browser-Use) - Listing automation
-├── MarketAgent (Perplexity) - Market analysis
-├── ContextStore (Hyperspell) - Buyer memory
-└── Database (Convex) - Real-time data storage
+┌─────────────────┐
+│  AgentMail API  │  Email infrastructure
+└────────┬────────┘
+         │
+    ┌────▼────┐
+    │EmailSvc │  Queue management & polling
+    └────┬────┘
+         │
+    ┌────▼────────┐
+    │EmailProc    │  AI analysis & response generation
+    └────┬────────┘
+         │
+    ┌────▼────┐       ┌──────────┐
+    │ Convex  │◄─────►│Dashboard │  Real-time sync
+    │Database │       │(Next.js) │
+    └─────────┘       └──────────┘
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ 
-- npm or yarn
-- API keys for:
-  - AgentMail
-  - OpenAI
-  - Browser-Use
-  - Hyperspell
-  - Perplexity
-  - Convex
+- **Node.js 18+** (v20 recommended)
+- **npm 9+**
+- **API Keys**:
+  - AgentMail (required)
+  - OpenAI (required for GPT-4o-mini)
+  - Convex (required for database)
 
-### Installation
+### Installation (5 minutes)
 
-1. **Clone the repository**
+1. **Clone and install**
    ```bash
    git clone <repository-url>
-   cd profitpilot
-   ```
-
-2. **Install dependencies**
-   ```bash
+   cd AgentMail
    npm install
    ```
 
-3. **Configure environment variables**
+2. **Configure environment**
    ```bash
    cp .env.example .env
-   # Edit .env and add your API keys
+   # Edit .env and add your API keys:
+   # - AGENTMAIL_API_KEY
+   # - OPENAI_API_KEY
+   # - CONVEX_URL (get from next step)
    ```
 
-4. **Start the dashboard**
+3. **Setup Convex**
    ```bash
-   npm run dev
+   npx convex login
+   npx convex dev --once
+   # Copy the deployment URL to .env as CONVEX_URL
    ```
+
+4. **Start the system**
+
+   **Terminal 1**: Email processor
+   ```bash
+   npx tsx start-demo.ts
+   ```
+
+   **Terminal 2**: Dashboard
+   ```bash
+   cd src/ui && npm run dev
+   ```
+
    Open [http://localhost:3000](http://localhost:3000)
 
-5. **Start the orchestrator** (in a separate terminal)
-   ```bash
-   npm run orchestrator
-   ```
+## 📧 How It Works
+
+1. **Email Arrives** → AgentMail receives it
+2. **Queue** → Stored in Convex `emailQueue` table
+3. **Analyze** → GPT-4o-mini extracts intent, sentiment, urgency
+4. **Generate Response** → AI creates contextual reply
+5. **Send** → Reply sent via AgentMail (if AUTO_RESPOND=true)
+6. **Log Activity** → Dashboard updates in real-time
+
+**Email Processing Flow**:
+```
+📬 Received → 🔄 Processing → 🔍 Analyzed → 📤 Sent → ✅ Completed
+```
 
 ## 📋 Project Structure
 
 ```
-/profitpilot-ts
-├── /src
-│   ├── /agents
-│   │   ├── emailAgent.ts       # AgentMail handler
-│   │   ├── browserAgent.ts     # Browser automation
-│   │   └── marketAgent.ts      # Market analysis
-│   ├── /memory
-│   │   └── contextStore.ts     # Hyperspell integration
-│   ├── /database
-│   │   ├── models.ts           # Convex schemas
-│   │   └── client.ts           # Database client
-│   ├── /workflows
-│   │   └── orchestrator.ts     # Main logic
-│   ├── /demo
-│   │   ├── runner.ts           # Demo execution
-│   │   └── scenarios.ts        # Test scenarios
-│   ├── /ui
-│   │   ├── /pages              # Next.js pages
-│   │   ├── /components         # React components
-│   │   └── /styles             # Tailwind CSS
-│   └── /types
-│       └── index.ts            # TypeScript types
-├── package.json
-├── tsconfig.json
+AgentMail/
+├── convex/                    # Convex serverless functions
+│   ├── schema.ts              # Database schema
+│   ├── emails.ts              # Email queue operations
+│   └── _generated/            # Auto-generated types
+│
+├── src/
+│   ├── services/              # Core services
+│   │   ├── AgentMailClient.ts # AgentMail SDK wrapper
+│   │   ├── EmailService.ts    # Queue & polling
+│   │   ├── EmailProcessor.ts  # AI processing
+│   │   └── ResponseGenerator.ts # GPT-4o-mini
+│   │
+│   ├── database/              # Database layer
+│   │   └── client.ts          # Convex client
+│   │
+│   ├── workflows/             # Orchestration
+│   │   └── NewEmailOrchestrator.ts
+│   │
+│   └── ui/                    # Next.js dashboard
+│       ├── pages/
+│       └── components/
+│
+├── start-demo.ts              # Entry point
+├── AGENTMAIL_INTEGRATION.md   # 📚 Integration docs
+├── DEVELOPMENT.md             # 📚 Dev guide
 └── README.md
 ```
 
-## 🎬 Running the Demo
-
-Run the full demo scenario:
-
-```bash
-npm run demo
-```
-
-This will execute all demo scenarios:
-1. Load Inventory - Show 3 products ready to sell
-2. Create Listings - Live browser automation
-3. Process Inquiry - Email arrives, AI responds
-4. Handle Negotiation - Multi-round back-and-forth
-5. Close Deal - Complete transaction
-6. Show Metrics - Real-time dashboard
-
 ## 🔧 Configuration
 
-### Environment Variables
-
-Create a `.env` file with the following:
+### Required Environment Variables
 
 ```env
-# AgentMail API Configuration
-AGENTMAIL_API_KEY=your_agentmail_api_key_here
+# AgentMail (email automation)
+AGENTMAIL_API_KEY=am_your_api_key_here
 
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4
+# OpenAI (AI analysis)
+OPENAI_API_KEY=sk-proj-your_key_here
+OPENAI_MODEL=gpt-4o-mini
 
-# Browser-Use Configuration
-BROWSER_USE_API_KEY=your_browser_use_api_key_here
+# Convex (database)
+CONVEX_URL=https://your-deployment.convex.cloud
+NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 
-# Hyperspell Configuration
-HYPERSPELL_API_KEY=your_hyperspell_api_key_here
-HYPERSPELL_API_URL=https://api.hyperspell.com
-
-# Perplexity Configuration
-PERPLEXITY_API_KEY=your_perplexity_api_key_here
-
-# Convex Configuration
-CONVEX_DEPLOYMENT=dev
-NEXT_PUBLIC_CONVEX_URL=your_convex_url_here
-
-# Application Configuration
-NODE_ENV=development
-PORT=3000
+# Optional Configuration
+AUTO_RESPOND=true              # Auto-send responses
+EMAIL_POLL_INTERVAL=30         # Seconds between checks
+WEBHOOK_URL=https://...        # For instant delivery (optional)
 ```
 
-## 📊 Dashboard
+### Key Settings
 
-The dashboard provides:
-- **Real-time Metrics** - Profit, deals, conversion rate, response time
-- **Activity Feed** - Live updates on all system actions
-- **Transaction History** - Complete record of all sales
-- **Control Panel** - Start/stop system, run demos
+- **AUTO_RESPOND=true**: Automatically sends AI-generated responses
+- **AUTO_RESPOND=false**: Generates responses but requires manual approval
+- **EMAIL_POLL_INTERVAL**: How often to check for new emails (default: 30s)
+- **WEBHOOK_URL**: If set, uses webhooks instead of polling for instant delivery
 
-## 🔄 How It Works
+## 📊 Dashboard Features
 
-1. **Product Listing**: BrowserAgent creates listings on multiple platforms
-2. **Email Monitoring**: EmailAgent continuously monitors for buyer inquiries
-3. **Analysis**: Incoming emails are analyzed for intent, product, and price
-4. **Market Research**: MarketAgent researches optimal pricing
-5. **Buyer Profiling**: ContextStore retrieves buyer history and preferences
-6. **Strategy Calculation**: Optimal negotiation strategy is calculated
-7. **Response Generation**: AI generates personalized response
-8. **Negotiation**: Multi-round negotiation handled automatically
-9. **Deal Closing**: Transaction completed and confirmed
-10. **Metrics Update**: Dashboard updated in real-time
+Access at **http://localhost:3000**
+
+### Real-Time Monitoring
+
+- **Email Activity Feed** - Live updates (received, analyzed, sent, errors)
+- **Queue Statistics** - Pending, processing, completed, failed counts
+- **Auto-Refresh** - Updates every 3 seconds
+- **Metadata Display** - Intent, sentiment, urgency for each email
+
+### What You'll See
+
+```
+📬 received  - "Interested in iPhone" from buyer@example.com
+🔍 analyzed  - Intent: inquiry, Sentiment: neutral, Urgency: medium
+📤 sent      - "Re: Interested in iPhone" to buyer@example.com
+```
+
+## 🏗️ Technical Architecture
+
+### Core Components
+
+1. **AgentMailClient** - Official SDK wrapper for AgentMail API
+2. **EmailService** - Queue management, polling, sending (Convex-backed)
+3. **EmailProcessor** - AI analysis pipeline with GPT-4o-mini
+4. **ResponseGenerator** - Context-aware response generation
+5. **DatabaseClient** - Convex operations wrapper
+6. **NewEmailOrchestrator** - System coordinator
+
+### Database Schema (Convex)
+
+**emailQueue** - Stores all emails with processing status
+```typescript
+{
+  messageId: string          // AgentMail ID
+  from: string               // Sender
+  to: string                 // Recipient
+  subject: string            // Subject line
+  body: string               // Email content
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  metadata: {                // AI analysis
+    intent?: string
+    sentiment?: string
+    urgency?: string
+  }
+}
+```
+
+**emailActivity** - Activity log for dashboard
+```typescript
+{
+  type: 'received' | 'sent' | 'analyzed' | 'error'
+  from: string
+  to: string
+  subject: string
+  summary: string
+  timestamp: number
+  metadata?: any
+}
+```
 
 ## 🛠️ Development
 
-### Type Checking
+### Commands
+
 ```bash
-npm run type-check
+npm run type-check     # TypeScript type checking
+npm run orchestrator   # Start email processor
+npm run dev           # Start dashboard (from src/ui)
 ```
 
-### Linting
-```bash
-npm run lint
-```
+### Development Workflow
 
-### Building
-```bash
-npm run build
-```
+See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for:
+- Project structure walkthrough
+- How to modify email processing
+- Adding custom templates
+- Database schema updates
+- Testing guide
+- Deployment instructions
 
-## 📈 Success Metrics
+## 📈 Key Metrics
 
-- **Deals Completed**: Number of successful transactions
-- **Total Profit**: Cumulative profit from all sales
-- **Conversion Rate**: Percentage of inquiries that result in sales
-- **Response Time**: Average time to respond to buyer emails
-- **Email Processing**: Number of emails handled automatically
+Dashboard displays:
+- **Total Emails**: All emails processed
+- **Pending**: Awaiting processing
+- **Processing**: Currently being analyzed
+- **Completed**: Successfully processed with responses
+- **Failed**: Errors (with retry logic)
+
+## 📚 Documentation
+
+- **[AGENTMAIL_INTEGRATION.md](./AGENTMAIL_INTEGRATION.md)** - Complete integration guide
+  - Architecture deep-dive
+  - Email processing pipeline
+  - Convex schema reference
+  - API documentation
+  - Troubleshooting
+
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Development workflow
+  - Setup instructions
+  - Code structure
+  - Making changes
+  - Testing guide
+  - Deployment
 
 ## 🔒 Security
 
-- API keys stored in environment variables (never commit `.env`)
-- Rate limiting on browser automation
-- Error handling with retry logic
-- Graceful shutdown handling
+- ✅ API keys in environment variables (never committed)
+- ✅ Self-email loop prevention
+- ✅ Webhook signature validation support
+- ✅ Error handling with retry logic (max 3 attempts)
+- ✅ Graceful shutdown handling
+
+## 🚀 What's Special
+
+### Database as Source of Truth
+
+Unlike typical in-memory queues, this system uses **Convex as the single source of truth**:
+
+✅ **Cross-Process Sync** - Multiple processes (orchestrator + dashboard) access same queue
+✅ **Real-Time Updates** - Dashboard shows live data without polling
+✅ **Persistent State** - Survives restarts
+✅ **Scalable** - Can run multiple orchestrators
+
+### Migration Highlights
+
+We recently migrated from in-memory queue to Convex-backed queue:
+- **Before**: `Map<string, EmailQueueItem>` - each process had separate queue
+- **After**: Convex `emailQueue` table - shared across all processes
+- **Result**: Dashboard stats now accurate, real-time sync achieved
 
 ## 🤝 Contributing
 
-This is a hackathon project. Contributions welcome!
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for contribution guidelines.
 
 ## 📝 License
 
-MIT License - See LICENSE file for details
+MIT License
 
-## 🙏 Acknowledgments
+## 🙏 Built With
 
-Built for the AI Agent Hackathon using:
-- **AgentMail** - Email automation
-- **Hyperspell** - Memory system
-- **Browser-Use** - Web automation
-- **Perplexity** - Market intelligence
-- **Convex** - Real-time database
-- **OpenAI** - AI responses
+- **[AgentMail](https://agentmail.to)** - Email infrastructure & SDK
+- **[Convex](https://convex.dev)** - Real-time serverless database
+- **[OpenAI](https://openai.com)** - GPT-4o-mini for AI analysis
+- **[Next.js](https://nextjs.org)** - Dashboard framework
+- **[TypeScript](https://typescriptlang.org)** - Type safety
 
 ---
 
-*Built with ❤️ for the AI Agent Hackathon*
+**Version**: 2.0.0 (Database-backed queue)
+**Last Updated**: 2025-01-11

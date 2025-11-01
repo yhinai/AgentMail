@@ -528,4 +528,53 @@ export class DatabaseClient {
       return [];
     }
   }
+
+  async getPendingEmails(limit: number = 10): Promise<any[]> {
+    if (this.useMockMode) return [];
+    if (!api) return [];
+
+    try {
+      const emails = await this.client!.query(api?.emails?.getPendingEmails || "emails:getPendingEmails" as any, { limit });
+      return emails;
+    } catch (error: any) {
+      console.warn('⚠️  Failed to get pending emails from Convex:', error.message);
+      return [];
+    }
+  }
+
+  async getQueueStats(): Promise<{
+    total: number;
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+  }> {
+    if (this.useMockMode) {
+      return { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
+    }
+    if (!api) {
+      return { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
+    }
+
+    try {
+      const stats = await this.client!.query(api?.emails?.getQueueStats || "emails:getQueueStats" as any, {});
+      return stats;
+    } catch (error: any) {
+      console.warn('⚠️  Failed to get queue stats from Convex:', error.message);
+      return { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
+    }
+  }
+
+  async getEmailByMessageId(messageId: string): Promise<any | null> {
+    if (this.useMockMode) return null;
+    if (!api) return null;
+
+    try {
+      const email = await this.client!.query(api?.emails?.getByMessageId || "emails:getByMessageId" as any, { messageId });
+      return email;
+    } catch (error: any) {
+      console.warn('⚠️  Failed to get email by message ID from Convex:', error.message);
+      return null;
+    }
+  }
 }
