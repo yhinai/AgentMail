@@ -35,8 +35,6 @@ export default function Dashboard() {
     // Poll for metrics updates
     const interval = setInterval(async () => {
       try {
-        // In production, this would use Convex subscriptions or API calls
-        // For demo, we'll use mock data
         const response = await fetch('/api/metrics');
         if (response.ok) {
           const data = await response.json();
@@ -59,7 +57,6 @@ export default function Dashboard() {
       timestamp: new Date(),
     }]);
 
-    // In production, this would trigger the demo runner
     try {
       const response = await fetch('/api/demo/run', { method: 'POST' });
       if (response.ok) {

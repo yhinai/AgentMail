@@ -70,8 +70,7 @@ export class MarketAgent {
    */
   private async perplexitySearch(query: string): Promise<string> {
     if (!this.perplexityApiKey) {
-      // Return mock data if API key not available
-      return this.getMockResponse();
+      throw new Error('Perplexity API key not configured');
     }
 
     try {
@@ -97,7 +96,7 @@ export class MarketAgent {
       return response.data.choices[0]?.message?.content || '';
     } catch (error) {
       console.error('Perplexity API error:', error);
-      return this.getMockResponse();
+      throw error;
     }
   }
 
@@ -211,10 +210,4 @@ export class MarketAgent {
     };
   }
 
-  /**
-   * Mock response for testing
-   */
-  private getMockResponse(): string {
-    return `Based on current market research, ${Math.floor(Math.random() * 100 + 50)} listings show prices ranging from $80 to $150, with an average of $120 and median of $110. The product shows medium demand with stable pricing trends.`;
-  }
 }
