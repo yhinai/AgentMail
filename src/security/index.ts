@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
+import jwt from 'jsonwebtoken';
 
 interface RateLimiterConfig {
   windowMs: number;
@@ -108,10 +109,55 @@ class AuthenticationService {
     this.tokenExpiry = config.tokenExpiry;
   }
   
-  async validateToken(token: string): Promise<boolean> {
-    // Token validation logic
-    // This would use jsonwebtoken library in production
-    return token.length > 0;
+  /**
+   * Generate a JWT token for a user
+   * @param payload - The data to include in the token
+   * @returns The signed JWT token
+   */
+  generateToken(payload: { userId?: string; email?: string; [key: string]: any }): string {
+    if (!this.jwtSecret) {
+      throw new Error('JWT_SECRET is not configured');
+    }
+    
+    return jwt.sign(payload, this.jwtSecret, {
+      expiresIn: this.tokenExpiry,
+      algorithm: 'HS256'
+    });
+  }
+  
+  /**
+   * Validate and decode a JWT token
+   * @param token - The JWT token to validate
+   * @returns The decoded token payload or null if invalid
+   */
+  async validateToken(token: string): Promise<any | null> {
+    if (!this.jwtSecret) {
+      throw new Error('JWT_SECRET is not configured');
+    }
+    
+    try {
+      const decoded = jwt.verify(token, this.jwtSecret, {
+        algorithms: ['HS256']
+      });
+      return decoded;
+    } catch (error: any) {
+      if (error.name === 'TokenExpiredError') {
+        throw new Error('Token has expired');
+      } else if (error.name === 'JsonWebTokenError') {
+        throw new Error('Invalid token');
+      } else {
+        throw error;
+      }
+    }
+  }
+  
+  /**
+   * Decode a token without verification (for debugging)
+   * @param token - The JWT token to decode
+   * @returns The decoded token payload
+   */
+  decodeToken(token: string): any {
+    return jwt.decode(token);
   }
 }
 
@@ -175,6 +221,48 @@ export class SecurityManager {
     });
     
     return isValid;
+  }
+  
+  /**
+   * Generate a JWT token for authentication
+   * @param payload - User data to include in token
+   * @returns JWT token string
+   */
+  generateToken(payload: { userId?: string; email?: string; [key: string]: any }): string {
+    return this.auth.generateToken(payload);
+  }
+  
+  /**
+   * Validate a JWT token from request
+   * @param token - JWT token string
+   * @returns Decoded token payload
+   */
+  async validateToken(token: string): Promise<any> {
+    return await this.auth.validateToken(token);
+  }
+  
+  /**
+   * Express middleware to verify JWT token from Authorization header
+   */
+  jwtMiddleware() {
+    return async (req: any, res: any, next: any) => {
+      try {
+        const authHeader = req.headers.authorization;
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return res.status(401).json({ error: 'No token provided' });
+        }
+        
+        const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+        const decoded = await this.validateToken(token);
+        
+        // Attach user info to request object
+        req.user = decoded;
+        next();
+      } catch (error: any) {
+        return res.status(401).json({ error: error.message || 'Invalid token' });
+      }
+    };
   }
   
   async checkRateLimit(identifier: string): Promise<boolean> {

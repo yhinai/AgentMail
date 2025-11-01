@@ -158,7 +158,7 @@ export const config: Config = {
   hyperspell: {
     apiKey: getEnv('HYPERSPELL_API_KEY'),
     apiUrl: getEnv('HYPERSPELL_API_URL', 'https://api.hyperspell.com'),
-    namespace: getEnv('HYPERSPELL_NAMESPACE', 'negotiations')
+    namespace: getEnv('HYPERSPELL_NAMESPACE', 'nihal')
   },
   
   perplexity: {
