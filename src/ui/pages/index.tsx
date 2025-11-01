@@ -4,6 +4,7 @@ import MetricsCards from '../components/MetricsCards';
 import ActivityFeed from '../components/ActivityFeed';
 import ControlPanel from '../components/ControlPanel';
 import TransactionsTable from '../components/TransactionsTable';
+import EmailActivityPanel from '../components/EmailActivityPanel';
 import type { Metrics, Transaction } from '../../types';
 
 export default function Dashboard() {
@@ -123,6 +124,11 @@ export default function Dashboard() {
               onStartDemo={handleStartDemo}
               onStop={handleStop}
             />
+          </div>
+
+          {/* Email Activity Panel (Full Width) */}
+          <div className="mt-8">
+            <EmailActivityPanel />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">

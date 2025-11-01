@@ -91,4 +91,49 @@ export default defineSchema({
     emailsProcessed: v.number(),
     lastUpdated: v.number(),
   }),
+
+  // Email queue for webhook-based email processing
+  emailQueue: defineTable({
+    messageId: v.string(),
+    threadId: v.optional(v.string()),
+    from: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    body: v.string(),
+    receivedAt: v.number(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('processing'),
+      v.literal('completed'),
+      v.literal('failed')
+    ),
+    priority: v.union(v.literal('low'), v.literal('medium'), v.literal('high')),
+    retryCount: v.number(),
+    processedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+    metadata: v.optional(v.object({
+      intent: v.optional(v.string()),
+      sentiment: v.optional(v.string()),
+      urgency: v.optional(v.string()),
+    })),
+  }).index('by_status', ['status'])
+    .index('by_message_id', ['messageId'])
+    .index('by_thread_id', ['threadId']),
+
+  // Email activity log for UI display
+  emailActivity: defineTable({
+    emailId: v.string(),
+    type: v.union(
+      v.literal('received'),
+      v.literal('sent'),
+      v.literal('analyzed'),
+      v.literal('error')
+    ),
+    from: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    summary: v.string(),
+    timestamp: v.number(),
+    metadata: v.optional(v.any()),
+  }).index('by_timestamp', ['timestamp']),
 });

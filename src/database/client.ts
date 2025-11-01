@@ -21,20 +21,36 @@ try {
 }
 
 export class DatabaseClient {
-  private client: ConvexHttpClient;
+  private client?: ConvexHttpClient;
   private convexUrl: string;
+  private useMockMode: boolean = false;
+
+  // In-memory storage for mock mode
+  private mockTransactions: Map<string, TransactionSchema> = new Map();
+  private mockProducts: Map<string, ProductSchema> = new Map();
+  private mockNegotiations: Map<string, NegotiationStateSchema> = new Map();
 
   constructor() {
     this.convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL || '';
-    if (!this.convexUrl) {
-      console.warn('Convex URL not configured. Using mock mode.');
+
+    // Check if URL is valid (not placeholder)
+    const isValidUrl = this.convexUrl &&
+                       this.convexUrl !== 'your_convex_url_here' &&
+                       (this.convexUrl.startsWith('https://') || this.convexUrl.startsWith('http://'));
+
+    if (!isValidUrl) {
+      console.warn('⚠️  Convex URL not configured. Using mock/in-memory mode.');
+      console.warn('   Set CONVEX_URL in .env to enable database persistence.');
+      this.useMockMode = true;
+    } else {
+      this.client = new ConvexHttpClient(this.convexUrl);
+      console.log('✅ Convex database client initialized');
     }
-    this.client = new ConvexHttpClient(this.convexUrl);
   }
 
   // Transaction operations
   async createTransaction(data: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction> {
-    if (!this.convexUrl) {
+    if (this.useMockMode) {
       // Mock implementation when Convex not configured
       const now = Date.now();
       const transaction: TransactionSchema = {
@@ -393,5 +409,122 @@ export class DatabaseClient {
       listingUrls: schema.listingUrls,
       agreedPrice: schema.agreedPrice,
     };
+  }
+
+  // Additional helper methods for orchestrator
+  async getAllTransactions(): Promise<Transaction[]> {
+    if (this.useMockMode) {
+      return Array.from(this.mockTransactions.values()).map(t => this.schemaToTransaction(t));
+    }
+    if (!api) return [];
+    const transactions = await this.client!.query(api.getAllTransactions, {});
+    return transactions.map((t: any) => this.schemaToTransaction(t as TransactionSchema));
+  }
+
+  async getProductByName(name: string): Promise<Product | null> {
+    if (this.useMockMode) {
+      const product = Array.from(this.mockProducts.values()).find(p => p.title === name);
+      return product ? this.schemaToProduct(product) : null;
+    }
+    if (!api) return null;
+    const product = await this.client!.query(api.getProductByName, { name });
+    return product ? this.schemaToProduct(product as ProductSchema) : null;
+  }
+
+  async getNegotiationByThread(threadId: string): Promise<NegotiationState | null> {
+    return this.getNegotiationState(threadId);
+  }
+
+  async createNegotiation(data: any): Promise<NegotiationState> {
+    return this.createNegotiationState(data);
+  }
+
+  async updateNegotiation(id: string, updates: any): Promise<NegotiationState> {
+    const negotiation = Array.from(this.mockNegotiations.values()).find(n => n._id === id);
+    if (!negotiation) throw new Error('Negotiation not found');
+    await this.updateNegotiationState(negotiation.threadId, updates);
+    const updated = await this.getNegotiationState(negotiation.threadId);
+    if (!updated) throw new Error('Failed to update negotiation');
+    return updated;
+  }
+
+  // ============================================
+  // EMAIL QUEUE & ACTIVITY
+  // ============================================
+
+  async queueEmail(emailData: {
+    messageId: string;
+    threadId?: string;
+    from: string;
+    to: string;
+    subject: string;
+    body: string;
+    priority?: 'low' | 'medium' | 'high';
+  }): Promise<string> {
+    if (this.useMockMode) {
+      return emailData.messageId; // Just return ID in mock mode
+    }
+    if (!api) return emailData.messageId;
+
+    try {
+      const emailId = await this.client!.mutation(api.emails.queueEmail, emailData);
+      return emailId;
+    } catch (error: any) {
+      console.warn('⚠️  Failed to queue email in Convex:', error.message);
+      return emailData.messageId;
+    }
+  }
+
+  async logActivity(activity: {
+    emailId: string;
+    type: 'received' | 'sent' | 'analyzed' | 'error';
+    from: string;
+    to: string;
+    subject: string;
+    summary: string;
+    metadata?: any;
+  }): Promise<void> {
+    if (this.useMockMode) return;
+    if (!api) return;
+
+    try {
+      await this.client!.mutation(api.emails.logActivity, activity);
+    } catch (error: any) {
+      console.warn('⚠️  Failed to log activity in Convex:', error.message);
+    }
+  }
+
+  async updateEmailStatus(
+    emailId: string,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    error?: string,
+    metadata?: any
+  ): Promise<void> {
+    if (this.useMockMode) return;
+    if (!api) return;
+
+    try {
+      await this.client!.mutation(api.emails.updateEmailStatus, {
+        emailId,
+        status,
+        error,
+        metadata,
+      });
+    } catch (error: any) {
+      console.warn('⚠️  Failed to update email status in Convex:', error.message);
+    }
+  }
+
+  async getRecentActivity(limit: number = 50): Promise<any[]> {
+    if (this.useMockMode) return [];
+    if (!api) return [];
+
+    try {
+      const activities = await this.client!.query(api.emails.getRecentActivity, { limit });
+      return activities;
+    } catch (error: any) {
+      console.warn('⚠️  Failed to get activity from Convex:', error.message);
+      return [];
+    }
   }
 }
