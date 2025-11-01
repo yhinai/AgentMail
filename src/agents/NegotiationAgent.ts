@@ -535,7 +535,11 @@ ${JSON.stringify(context, null, 2)}`;
       maxTokens: 400
     });
     
-    return await this.templates.format(response, 'counter_offer');
+    const formatted = await this.templates.format(response, 'counter_offer');
+    return {
+      subject: `Re: Counter offer - $${newOffer}`,
+      ...formatted
+    };
   }
   
   private async generateAcceptanceEmail(thread: NegotiationThread, price: number): Promise<EmailContent> {
@@ -585,7 +589,11 @@ ${JSON.stringify(context, null, 2)}`;
       { role: 'user', content: `Seller question: ${analysis.messageExcerpt}\n\nProvide a helpful, concise answer.` }
     ]);
     
-    return await this.templates.format(response, strategy.templateName);
+    const formatted = await this.templates.format(response, strategy.templateName);
+    return {
+      subject: `Re: ${thread.opportunityId || 'Your inquiry'}`,
+      ...formatted
+    };
   }
   
   private async handleNegotiation(thread: NegotiationThread, analysis: ResponseAnalysis): Promise<void> {
@@ -665,7 +673,11 @@ ${JSON.stringify(context, null, 2)}`;
       { role: 'user', content: `Follow up on offer of $${thread.currentOffer} for opportunity ${thread.opportunityId}` }
     ]);
     
-    return await this.templates.format(response, strategy.templateName);
+    const formatted = await this.templates.format(response, strategy.templateName);
+    return {
+      subject: `Re: Follow-up on offer - $${thread.currentOffer}`,
+      ...formatted
+    };
   }
   
   private async storeNegotiationMemory(thread: NegotiationThread): Promise<void> {
