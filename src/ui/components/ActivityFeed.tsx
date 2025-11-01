@@ -15,13 +15,13 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
   const getActivityIcon = (type: Activity['type']) => {
     switch (type) {
       case 'success':
-        return '✅';
+        return 'https://img.icons8.com/?id=pIPl8tqh3igN&format=png&size=32';
       case 'warning':
-        return '⚠️';
+        return 'https://img.icons8.com/?id=VbHk5FdAyj8k&format=png&size=32';
       case 'error':
-        return '❌';
+        return 'https://img.icons8.com/?id=fYgQxDaH069W&format=png&size=32';
       default:
-        return 'ℹ️';
+        return 'https://img.icons8.com/?id=VQOfeAx5KWTK&format=png&size=32';
     }
   };
 
@@ -54,7 +54,7 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
                 className={`p-3 rounded-lg ${getActivityColor(activity.type)}`}
               >
                 <div className="flex items-start space-x-3">
-                  <span className="text-xl">{getActivityIcon(activity.type)}</span>
+                  <img src={getActivityIcon(activity.type)} alt={activity.type} className="w-6 h-6 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{activity.message}</p>
                     <p className="text-xs text-gray-500 mt-1">
