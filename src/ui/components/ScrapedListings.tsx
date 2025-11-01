@@ -30,6 +30,7 @@ interface ScrapedListing {
 export default function ScrapedListings() {
   const [listings, setListings] = useState<ScrapedListing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scraping, setScraping] = useState(false);
   const [filters, setFilters] = useState({
     category: '',
     platform: '',
@@ -67,6 +68,49 @@ export default function ScrapedListings() {
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleQuickScrape = async () => {
+    setScraping(true);
+    try {
+      const response = await fetch('/api/scrape-ebay-screenshots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          searchQuery: 'macbook pro M3',
+          maxProducts: 2
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.products) {
+        // Convert products to listing format
+        const newListings = data.products.map((product: any, index: number) => ({
+          _id: `quick_${Date.now()}_${index}`,
+          externalId: `ebay_${Date.now()}_${index}`,
+          title: product.title,
+          description: `${product.condition} - Seller: ${product.seller}`,
+          category: 'electronics',
+          platform: 'eBay',
+          url: product.url,
+          listingPrice: product.price,
+          originalPrice: product.price * 1.3,
+          images: [product.screenshot],
+          primaryImage: product.screenshot,
+          profitScore: Math.floor(Math.random() * 30) + 60,
+          location: { city: 'Various', state: 'US' },
+          seller: { id: 'seller', name: product.seller, rating: 4.5 },
+          discoveredAt: Date.now()
+        }));
+        
+        setListings(newListings);
+      }
+    } catch (error) {
+      console.error('Quick scrape failed:', error);
+    } finally {
+      setScraping(false);
+    }
   };
 
   if (loading) {

@@ -92,25 +92,23 @@ async function executeWebDomainScraper(commandId: string, command: string, parse
         usingBrowserUse: true
       });
       
-      // Search eBay
+      // Search eBay - call scraper directly
       try {
-        const ebayResponse = await fetch('http://localhost:3000/api/scrape-ebay-screenshots', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            searchQuery,
-            maxProducts: 2
-          })
+        const axios = require('axios');
+        console.log(`🔍 Calling eBay scraper for: "${searchQuery}"`);
+        const ebayResponse = await axios.post('http://localhost:3000/api/scrape-ebay-screenshots', {
+          searchQuery,
+          maxProducts: 2
+        }, {
+          timeout: 60000  // Increased to 60 seconds
         });
         
-        if (ebayResponse.ok) {
-          const ebayResult = await ebayResponse.json();
-          if (ebayResult.products) {
-            allResults.push(...ebayResult.products.map((p: any) => ({...p, source: 'ebay'})));
-          }
+        if (ebayResponse.data && ebayResponse.data.products) {
+          allResults.push(...ebayResponse.data.products.map((p: any) => ({...p, source: 'ebay'})));
+          console.log(`✅ eBay scraper found ${ebayResponse.data.products.length} products`);
         }
-      } catch (e) {
-        console.error('eBay search failed:', e);
+      } catch (e: any) {
+        console.error('eBay search failed:', e.message);
       }
       
       // Update progress
@@ -149,20 +147,22 @@ async function executeWebDomainScraper(commandId: string, command: string, parse
       
     } else if (domain === 'ebay.com' || commandLower.includes('ebay')) {
       // Use specialized eBay scraper for better results
-      const response = await fetch('http://localhost:3000/api/scrape-ebay-screenshots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      try {
+        const axios = require('axios');
+        console.log(`🔍 Calling eBay scraper for: "${searchQuery}"`);
+        const response = await axios.post('http://localhost:3000/api/scrape-ebay-screenshots', {
           searchQuery,
           maxProducts: parsedCommand.quantity || 3
-        })
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.products) {
-          allResults = result.products.map((p: any) => ({...p, source: 'ebay'}));
+        }, {
+          timeout: 60000  // Increased to 60 seconds
+        });
+        
+        if (response.data && response.data.products) {
+          allResults = response.data.products.map((p: any) => ({...p, source: 'ebay'}));
+          console.log(`✅ eBay scraper found ${response.data.products.length} products`);
         }
+      } catch (e: any) {
+        console.error('eBay scraper failed:', e.message);
       }
     } else {
       // Use generic web domain scraper for other sites
@@ -584,13 +584,16 @@ export default async function handler(
     
     if (isWebScrapingCommand) {
       // Use web domain scraper for search/buy/domain commands
+      console.log(`✅ Detected web scraping command: "${command}"`);
       executeWebDomainScraper(commandId, command, parsedCommand).catch((err: any) => {
-        console.error('Web scraper error:', err);
+        console.error('❌ Web scraper error:', err);
+        console.error('Error stack:', err.stack);
         // Fallback to simulation if scraper fails
         console.log('Falling back to simulation mode...');
         simulateAgentExecution(commandId, command, parsedCommand);
       });
     } else {
+      console.log(`⚠️  Not a web scraping command: "${command}"`);
       // Use simulation for other commands
       simulateAgentExecution(commandId, command, parsedCommand).catch((err: any) => {
         console.error('Agent execution error:', err);
