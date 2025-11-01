@@ -1,9 +1,9 @@
 /**
  * AgentMail API Client
- * Low-level wrapper around the AgentMail REST API
+ * Wrapper around the official AgentMail SDK
  */
 
-import axios, { AxiosInstance } from 'axios';
+import { AgentMailClient as OfficialAgentMailClient } from 'agentmail';
 
 export interface Inbox {
   inbox_id: string;
@@ -61,25 +61,19 @@ export interface Pod {
 }
 
 export class AgentMailClient {
-  private client: AxiosInstance;
+  private client: OfficialAgentMailClient;
   private apiKey: string;
-  private baseURL: string;
 
   constructor(apiKey?: string, baseURL?: string) {
     this.apiKey = apiKey || process.env.AGENTMAIL_API_KEY || '';
-    this.baseURL = baseURL || process.env.AGENTMAIL_API_URL || 'https://api.agentmail.to/v0';
 
     if (!this.apiKey) {
       console.warn('⚠️  AgentMail API key not configured. Some features may not work.');
     }
 
-    this.client = axios.create({
-      baseURL: this.baseURL,
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000,
+    // Initialize official SDK
+    this.client = new OfficialAgentMailClient({
+      apiKey: this.apiKey,
     });
   }
 
@@ -88,8 +82,14 @@ export class AgentMailClient {
   // ============================================
 
   async listPods(): Promise<Pod[]> {
-    const response = await this.client.get('/pods');
-    return response.data.pods || [];
+    const response = await this.client.pods.list();
+    return (response.pods || []).map(pod => ({
+      pod_id: pod.podId,
+      organization_id: pod.organizationId,
+      name: pod.displayName || pod.podId,
+      created_at: pod.createdAt || new Date().toISOString(),
+      updated_at: pod.updatedAt || new Date().toISOString(),
+    }));
   }
 
   async getDefaultPod(): Promise<Pod | null> {
@@ -102,25 +102,53 @@ export class AgentMailClient {
   // ============================================
 
   async listInboxes(podId?: string): Promise<Inbox[]> {
-    const endpoint = podId ? `/pods/${podId}/inboxes` : '/inboxes';
-    const response = await this.client.get(endpoint);
-    return response.data.inboxes || [];
+    const response = await this.client.inboxes.list();
+    const inboxes = (response.inboxes || []).map(inbox => ({
+      inbox_id: inbox.inboxId,
+      pod_id: inbox.podId,
+      email: inbox.email || inbox.inboxId,
+      name: inbox.displayName || inbox.email || inbox.inboxId,
+      created_at: inbox.createdAt || new Date().toISOString(),
+      updated_at: inbox.updatedAt || new Date().toISOString(),
+    }));
+
+    // Filter by podId if provided
+    if (podId) {
+      return inboxes.filter(inbox => inbox.pod_id === podId);
+    }
+
+    return inboxes;
   }
 
   async getInbox(inboxId: string): Promise<Inbox> {
-    const response = await this.client.get(`/inboxes/${inboxId}`);
-    return response.data;
+    const response = await this.client.inboxes.get(inboxId);
+    return {
+      inbox_id: response.inboxId,
+      pod_id: response.podId,
+      email: response.email || response.inboxId,
+      name: response.displayName || response.email || response.inboxId,
+      created_at: response.createdAt || new Date().toISOString(),
+      updated_at: response.updatedAt || new Date().toISOString(),
+    };
   }
 
   async createInbox(podId: string, name: string): Promise<Inbox> {
-    const response = await this.client.post(`/pods/${podId}/inboxes`, {
-      name,
+    // Note: SDK creates inboxes differently - check SDK docs for exact params
+    const response = await this.client.inboxes.create({
+      displayName: name,
     });
-    return response.data;
+    return {
+      inbox_id: response.inboxId,
+      pod_id: response.podId,
+      email: response.email || response.inboxId,
+      name: response.displayName || name,
+      created_at: response.createdAt || new Date().toISOString(),
+      updated_at: response.updatedAt || new Date().toISOString(),
+    };
   }
 
   async deleteInbox(inboxId: string): Promise<void> {
-    await this.client.delete(`/inboxes/${inboxId}`);
+    await this.client.inboxes.delete(inboxId);
   }
 
   // ============================================
@@ -128,33 +156,99 @@ export class AgentMailClient {
   // ============================================
 
   async listMessages(inboxId: string, limit: number = 50): Promise<Message[]> {
-    const response = await this.client.get(`/inboxes/${inboxId}/messages`, {
-      params: { limit },
-    });
-    return response.data.messages || [];
+    const response = await this.client.inboxes.messages.list(inboxId, { limit });
+    return (response.messages || []).map(msg => ({
+      message_id: msg.messageId,
+      inbox_id: inboxId,
+      thread_id: msg.threadId,
+      from: msg.from,
+      to: msg.to || [],
+      subject: msg.subject || '',
+      body: msg.text || '',
+      html: msg.html,
+      created_at: msg.createdAt || new Date().toISOString(),
+      attachments: (msg.attachments || []).map(att => ({
+        filename: att.filename || 'attachment',
+        content_type: att.contentType || 'application/octet-stream',
+        size: att.size || 0,
+        url: att.url || '',
+      })),
+    }));
   }
 
   async getMessage(inboxId: string, messageId: string): Promise<Message> {
-    const response = await this.client.get(`/inboxes/${inboxId}/messages/${messageId}`);
-    return response.data;
+    const response = await this.client.inboxes.messages.get(inboxId, messageId);
+    return {
+      message_id: response.messageId,
+      inbox_id: inboxId,
+      thread_id: response.threadId,
+      from: response.from,
+      to: response.to || [],
+      subject: response.subject || '',
+      body: response.text || '',
+      html: response.html,
+      created_at: response.createdAt || new Date().toISOString(),
+      attachments: (response.attachments || []).map(att => ({
+        filename: att.filename || 'attachment',
+        content_type: att.contentType || 'application/octet-stream',
+        size: att.size || 0,
+        url: att.url || '',
+      })),
+    };
   }
 
   async sendMessage(inboxId: string, to: string[], subject: string, body: string, html?: string): Promise<Message> {
-    const response = await this.client.post(`/inboxes/${inboxId}/messages`, {
+    // Use official SDK for sending messages
+    const response = await this.client.inboxes.messages.send(inboxId, {
       to,
       subject,
-      body,
+      text: body,
       html,
     });
-    return response.data;
+
+    // Get inbox info to determine the from address
+    const inbox = await this.getInbox(inboxId);
+
+    // Convert official SDK response to our Message format
+    return {
+      message_id: response.messageId,
+      inbox_id: inboxId,
+      thread_id: response.threadId,
+      from: inbox.email,
+      to: to,
+      subject: subject,
+      body: body,
+      html: html,
+      created_at: new Date().toISOString(),
+    };
   }
 
-  async replyToMessage(inboxId: string, threadId: string, body: string, html?: string): Promise<Message> {
-    const response = await this.client.post(`/inboxes/${inboxId}/threads/${threadId}/reply`, {
-      body,
-      html,
-    });
-    return response.data;
+  async replyToMessage(inboxId: string, messageId: string, body: string, html?: string): Promise<Message> {
+    // Use official SDK for replying to messages
+    const response = await this.client.inboxes.messages.reply(
+      inboxId,
+      messageId,
+      {
+        text: body,
+        html,
+      }
+    );
+
+    // Get inbox info to determine the from address
+    const inbox = await this.getInbox(inboxId);
+
+    // Convert official SDK response to our Message format
+    return {
+      message_id: response.messageId,
+      inbox_id: inboxId,
+      thread_id: response.threadId,
+      from: inbox.email,
+      to: [], // Reply recipients are inferred from the thread
+      subject: '', // Subject is inherited from thread
+      body: body,
+      html: html,
+      created_at: new Date().toISOString(),
+    };
   }
 
   // ============================================
@@ -162,20 +256,37 @@ export class AgentMailClient {
   // ============================================
 
   async listThreads(inboxId: string, limit: number = 50): Promise<Thread[]> {
-    const response = await this.client.get(`/inboxes/${inboxId}/threads`, {
-      params: { limit },
-    });
-    return response.data.threads || [];
+    const response = await this.client.inboxes.threads.list(inboxId, { limit });
+    return (response.threads || []).map(thread => ({
+      thread_id: thread.threadId,
+      inbox_id: inboxId,
+      subject: thread.subject || '',
+      participants: thread.participants || [],
+      message_count: thread.messageCount || 0,
+      last_message_at: thread.lastMessageAt || new Date().toISOString(),
+      created_at: thread.createdAt || new Date().toISOString(),
+    }));
   }
 
   async getThread(inboxId: string, threadId: string): Promise<Thread> {
-    const response = await this.client.get(`/inboxes/${inboxId}/threads/${threadId}`);
-    return response.data;
+    const response = await this.client.inboxes.threads.get(inboxId, threadId);
+    return {
+      thread_id: response.threadId,
+      inbox_id: inboxId,
+      subject: response.subject || '',
+      participants: response.participants || [],
+      message_count: response.messageCount || 0,
+      last_message_at: response.lastMessageAt || new Date().toISOString(),
+      created_at: response.createdAt || new Date().toISOString(),
+    };
   }
 
   async getThreadMessages(inboxId: string, threadId: string): Promise<Message[]> {
-    const response = await this.client.get(`/inboxes/${inboxId}/threads/${threadId}/messages`);
-    return response.data.messages || [];
+    // SDK doesn't have a direct getThreadMessages method
+    // We can get the thread and then list messages filtered by thread_id
+    // Or we can use listMessages and filter client-side
+    const allMessages = await this.listMessages(inboxId, 100);
+    return allMessages.filter(msg => msg.thread_id === threadId);
   }
 
   // ============================================
@@ -183,20 +294,32 @@ export class AgentMailClient {
   // ============================================
 
   async listWebhooks(): Promise<Webhook[]> {
-    const response = await this.client.get('/webhooks');
-    return response.data.webhooks || [];
+    const response = await this.client.webhooks.list();
+    return (response.webhooks || []).map(webhook => ({
+      webhook_id: webhook.webhookId,
+      url: webhook.url,
+      events: webhook.eventTypes || [],
+      active: webhook.status === 'active',
+      created_at: webhook.createdAt || new Date().toISOString(),
+    }));
   }
 
   async createWebhook(url: string, events: string[]): Promise<Webhook> {
-    const response = await this.client.post('/webhooks', {
+    const response = await this.client.webhooks.create({
       url,
-      events,
+      eventTypes: events,
     });
-    return response.data;
+    return {
+      webhook_id: response.webhookId,
+      url: response.url,
+      events: response.eventTypes || [],
+      active: response.status === 'active',
+      created_at: response.createdAt || new Date().toISOString(),
+    };
   }
 
   async deleteWebhook(webhookId: string): Promise<void> {
-    await this.client.delete(`/webhooks/${webhookId}`);
+    await this.client.webhooks.delete(webhookId);
   }
 
   // ============================================

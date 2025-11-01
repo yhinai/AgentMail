@@ -467,7 +467,8 @@ export class DatabaseClient {
     if (!api) return emailData.messageId;
 
     try {
-      const emailId = await this.client!.mutation(api.emails.queueEmail, emailData);
+      // Use function name directly as string
+      const emailId = await this.client!.mutation(api?.emails?.queueEmail || "emails:queueEmail" as any, emailData);
       return emailId;
     } catch (error: any) {
       console.warn('⚠️  Failed to queue email in Convex:', error.message);
@@ -488,7 +489,7 @@ export class DatabaseClient {
     if (!api) return;
 
     try {
-      await this.client!.mutation(api.emails.logActivity, activity);
+      await this.client!.mutation(api?.emails?.logActivity || "emails:logActivity" as any, activity);
     } catch (error: any) {
       console.warn('⚠️  Failed to log activity in Convex:', error.message);
     }
@@ -504,7 +505,7 @@ export class DatabaseClient {
     if (!api) return;
 
     try {
-      await this.client!.mutation(api.emails.updateEmailStatus, {
+      await this.client!.mutation(api?.emails?.updateEmailStatus || "emails:updateEmailStatus" as any, {
         emailId,
         status,
         error,
@@ -520,7 +521,7 @@ export class DatabaseClient {
     if (!api) return [];
 
     try {
-      const activities = await this.client!.query(api.emails.getRecentActivity, { limit });
+      const activities = await this.client!.query(api?.emails?.getRecentActivity || "emails:getRecentActivity" as any, { limit });
       return activities;
     } catch (error: any) {
       console.warn('⚠️  Failed to get activity from Convex:', error.message);

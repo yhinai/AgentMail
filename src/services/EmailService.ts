@@ -40,6 +40,7 @@ export interface EmailActivity {
 
 export class EmailService extends EventEmitter {
   private client: AgentMailClient;
+  private db: DatabaseClient;
   private inbox?: Inbox;
   private queue: Map<string, EmailQueueItem> = new Map();
   private activityLog: EmailActivity[] = [];
@@ -51,6 +52,7 @@ export class EmailService extends EventEmitter {
   constructor(apiKey?: string, baseURL?: string) {
     super();
     this.client = new AgentMailClient(apiKey, baseURL);
+    this.db = new DatabaseClient();
   }
 
   // ============================================
@@ -100,6 +102,17 @@ export class EmailService extends EventEmitter {
     };
 
     this.queue.set(id, queueItem);
+
+    // Write to Convex database
+    this.db.queueEmail({
+      messageId: email.messageId,
+      threadId: email.threadId,
+      from: email.from,
+      to: email.to,
+      subject: email.subject,
+      body: email.body,
+      priority: email.priority,
+    }).catch(err => console.warn('⚠️  Failed to queue email in DB:', err.message));
 
     // Log activity
     this.logActivity({
@@ -337,6 +350,17 @@ export class EmailService extends EventEmitter {
       this.activityLog = this.activityLog.slice(0, 100);
     }
 
+    // Write to Convex database
+    this.db.logActivity({
+      emailId: activityItem.id,
+      type: activity.type,
+      from: activity.from,
+      to: activity.to,
+      subject: activity.subject,
+      summary: activity.summary,
+      metadata: activity.metadata,
+    }).catch(err => console.warn('⚠️  Failed to log activity in DB:', err.message));
+
     this.emit('activity:logged', activityItem);
   }
 
@@ -420,8 +444,20 @@ export class EmailService extends EventEmitter {
       for (const messagePreview of messages) {
         // Skip if we've already seen this message
         if (this.seenMessageIds.has(messagePreview.message_id)) {
+          console.log(`⏭️  Skipping already seen message: ${messagePreview.message_id}`);
           continue;
         }
+
+        // Skip emails from ourselves to avoid feedback loops
+        if (messagePreview.from === this.inbox.email ||
+            messagePreview.from.includes(this.inbox.inbox_id) ||
+            messagePreview.from.includes(this.inbox.email)) {
+          console.log(`⏭️  Skipping email from self: ${messagePreview.from}`);
+          this.seenMessageIds.add(messagePreview.message_id);
+          continue;
+        }
+
+        console.log(`🆕 New message ID: ${messagePreview.message_id} (total seen: ${this.seenMessageIds.size})`);
 
         // Fetch full message details
         const message = await this.client.getMessage(this.inbox.inbox_id, messagePreview.message_id);

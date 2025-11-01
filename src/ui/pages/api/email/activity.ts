@@ -3,7 +3,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getEmailService } from '../../../../services/EmailServiceSingleton';
+import { DatabaseClient } from '../../../../database/client';
 
 export default async function handler(
   req: NextApiRequest,
@@ -14,11 +14,20 @@ export default async function handler(
   }
 
   try {
-    const emailService = getEmailService();
+    const db = new DatabaseClient();
     const limit = parseInt(req.query.limit as string) || 50;
 
-    const activity = emailService.getRecentActivity(limit);
-    const stats = emailService.getQueueStats();
+    // Get activity from Convex database
+    const activity = await db.getRecentActivity(limit);
+
+    // Calculate stats from activity
+    const stats = {
+      total: activity.length,
+      pending: activity.filter((a: any) => a.type === 'received').length,
+      processing: 0,
+      completed: activity.filter((a: any) => a.type === 'analyzed').length,
+      failed: activity.filter((a: any) => a.type === 'error').length,
+    };
 
     return res.status(200).json({
       activity,

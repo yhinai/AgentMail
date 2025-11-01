@@ -289,24 +289,20 @@ export class EmailProcessor {
       const delay = parseInt(process.env.EMAIL_RESPONSE_DELAY || '5', 10);
       await new Promise(resolve => setTimeout(resolve, delay * 1000));
 
-      if (email.threadId) {
-        // Reply to existing thread
-        await this.emailService.replyToThread(
-          email.threadId,
-          response.body,
-          response.html
-        );
-      } else {
-        // Send new email
-        await this.emailService.sendEmail(
-          [email.from],
-          response.subject,
-          response.body,
-          response.html
-        );
-      }
+      // Always send as a new email (thread replies via AgentMail API don't work)
+      // Add "Re:" prefix to subject if replying to an existing email
+      const subject = email.threadId && !response.subject.startsWith('Re:')
+        ? `Re: ${email.subject}`
+        : response.subject;
 
-      console.log(`   📤 Response sent successfully`);
+      await this.emailService.sendEmail(
+        [email.from],
+        subject,
+        response.body,
+        response.html
+      );
+
+      console.log(`   📤 Response sent successfully to ${email.from}`);
       return true;
     } catch (error: any) {
       console.error(`   ❌ Failed to send response:`, error.message);
