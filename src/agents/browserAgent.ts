@@ -91,7 +91,7 @@ export class BrowserAgent {
         const taskId = await this.createPlatformListingTask(platform, product);
         console.log(`[Browser-Use] Task created: ${taskId}`);
 
-        const result = await this.waitForTask(taskId, 90000); // 90 second timeout
+        const result = await this.waitForTask(taskId, 300000); // 5 minute timeout
 
         if (result.success && result.output) {
           // Extract URL from output
