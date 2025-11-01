@@ -9,7 +9,9 @@
  */
 
 import type * as clearOldActivity from "../clearOldActivity.js";
+import type * as commands from "../commands.js";
 import type * as emails from "../emails.js";
+import type * as listings from "../listings.js";
 
 import type {
   ApiFromModules,
@@ -27,7 +29,9 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   clearOldActivity: typeof clearOldActivity;
+  commands: typeof commands;
   emails: typeof emails;
+  listings: typeof listings;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 
