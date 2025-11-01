@@ -49,9 +49,9 @@ export class EmailService extends EventEmitter {
   private pollingInterval?: NodeJS.Timeout;
   private seenMessageIds: Set<string> = new Set();
 
-  constructor(apiKey?: string, baseURL?: string) {
+  constructor(apiKey?: string) {
     super();
-    this.client = new AgentMailClient(apiKey, baseURL);
+    this.client = new AgentMailClient(apiKey);
     this.db = new DatabaseClient();
   }
 

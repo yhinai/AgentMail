@@ -8,7 +8,6 @@ import { EmailProcessor } from '../services/EmailProcessor';
 import { getEmailService } from '../services/EmailServiceSingleton';
 import { BrowserAgent } from '../agents/browserAgent';
 import { MarketAgent } from '../agents/marketAgent';
-import { ContextStore } from '../memory/contextStore';
 import { DatabaseClient } from '../database/client';
 import type { Product, Transaction, Metrics } from '../types';
 
@@ -17,7 +16,6 @@ export class NewEmailOrchestrator {
   private emailProcessor: EmailProcessor;
   private browserAgent: BrowserAgent;
   private marketAgent: MarketAgent;
-  private contextStore: ContextStore;
   private db: DatabaseClient;
   private isRunning: boolean = false;
   private processingInterval?: NodeJS.Timeout;
@@ -30,7 +28,6 @@ export class NewEmailOrchestrator {
     // Existing agents
     this.browserAgent = new BrowserAgent();
     this.marketAgent = new MarketAgent();
-    this.contextStore = new ContextStore();
     this.db = new DatabaseClient();
 
     console.log('📧 NewEmailOrchestrator created');

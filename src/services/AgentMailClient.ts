@@ -64,7 +64,7 @@ export class AgentMailClient {
   private client: OfficialAgentMailClient;
   private apiKey: string;
 
-  constructor(apiKey?: string, baseURL?: string) {
+  constructor(apiKey?: string) {
     this.apiKey = apiKey || process.env.AGENTMAIL_API_KEY || '';
 
     if (!this.apiKey) {
