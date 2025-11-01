@@ -1,8 +1,11 @@
 // @ts-nocheck - TODO: Fix Bull Queue type issues after merge
 // Queue Management System - Bull queue management with retry logic and priority support
-import Queue, { Job } from 'bull';
+import QueueClass from 'bull';
+import { Job } from 'bull';
 import Redis from 'ioredis';
 import { JobOptions, JobContext, QueueStatus } from '../../types';
+
+type Queue<T = any> = QueueClass.Queue<T>;
 
 type ProcessorFunction<T = any> = (data: T, context: JobContext) => Promise<any>;
 
@@ -84,7 +87,7 @@ class QueueMetricsCollector {
 }
 
 export class QueueManager {
-  private queues: Map<string, Queue>;
+  private queues: Map<string, Queue<any>>;
   private processors: Map<string, QueueProcessor>;
   private redis: Redis;
   private metrics: QueueMetricsCollector;
@@ -115,12 +118,12 @@ export class QueueManager {
     });
   }
   
-  async createQueue(name: string, options?: QueueOptions): Promise<Queue> {
+  async createQueue(name: string, options?: QueueOptions): Promise<Queue<any>> {
     if (this.queues.has(name)) {
       return this.queues.get(name)!;
     }
     
-    const queue = new Queue(name, {
+    const queue = new QueueClass(name, {
       redis: {
         host: this.redis.options.host as string,
         port: this.redis.options.port as number,
@@ -223,23 +226,23 @@ export class QueueManager {
     return await queue.addBulk(bulkJobs);
   }
   
-  private setupQueueListeners(queue: Queue): void {
-    queue.on('completed', (job, result) => {
+  private setupQueueListeners(queue: Queue<any>): void {
+    queue.on('completed', (job: Job<any>, result: any) => {
       console.log(`Job ${job.id} completed in queue ${queue.name}`);
       this.metrics.recordCompletion(queue.name);
     });
     
-    queue.on('failed', (job, error) => {
+    queue.on('failed', (job: Job<any>, error: Error) => {
       console.error(`Job ${job.id} failed in queue ${queue.name}:`, error);
       this.metrics.recordFailure(queue.name, error);
     });
     
-    queue.on('stalled', (job) => {
+    queue.on('stalled', (job: Job<any>) => {
       console.warn(`Job ${job.id} stalled in queue ${queue.name}`);
       this.metrics.recordStalled(queue.name);
     });
     
-    queue.on('progress', (job, progress) => {
+    queue.on('progress', (job: Job<any>, progress: number) => {
       console.log(`Job ${job.id} progress: ${progress}%`);
     });
   }

@@ -11,7 +11,7 @@ export interface MonitoringConfig {
 
 export class MonitoringService {
   private metrics: Map<string, any>;
-  private errorTracker: typeof Sentry;
+  private errorTracker: typeof Sentry | null = null;
   private prometheusPort: number;
   
   constructor(config?: MonitoringConfig) {
@@ -134,13 +134,13 @@ export class MonitoringService {
       responseTime: responseTime ? {
         count: responseTime.values.length,
         avg: responseTime.values.length > 0 
-          ? responseTime.values.reduce((a, b) => a + b, 0) / responseTime.values.length 
+          ? responseTime.values.reduce((a: number, b: number) => a + b, 0) / responseTime.values.length 
           : 0
       } : null,
       apiLatency: apiLatency ? {
         count: apiLatency.values.length,
         avg: apiLatency.values.length > 0
-          ? apiLatency.values.reduce((a, b) => a + b, 0) / apiLatency.values.length
+          ? apiLatency.values.reduce((a: number, b: number) => a + b, 0) / apiLatency.values.length
           : 0
       } : null,
       queueDepth: queueDepth ? { depth: queueDepth.value } : null
@@ -164,7 +164,7 @@ export class MonitoringService {
         output += `${name} ${metric.value}\n`;
       } else if (metric.type === 'histogram' && metric.values) {
         const avg = metric.values.length > 0
-          ? metric.values.reduce((a, b) => a + b, 0) / metric.values.length
+          ? metric.values.reduce((a: number, b: number) => a + b, 0) / metric.values.length
           : 0;
         output += `# HELP ${name} ${metric.description || ''}\n`;
         output += `# TYPE ${name} histogram\n`;

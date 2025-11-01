@@ -63,7 +63,9 @@ class CacheManager {
     if (this.localCache.size >= this.maxSize) {
       // Remove oldest entry
       const firstKey = this.localCache.keys().next().value;
-      this.localCache.delete(firstKey);
+      if (firstKey) {
+        this.localCache.delete(firstKey);
+      }
     }
     
     this.localCache.set(key, {
@@ -212,9 +214,9 @@ export class PerformanceManager {
         
         const promise = Promise.all(batch.map(processor)).then(batchResults => {
           results.push(...batchResults);
-          inProgress.delete(promise);
+          inProgress.delete(promise as Promise<R>);
           return batchResults;
-        });
+        }) as Promise<R>;
         
         inProgress.add(promise);
       }

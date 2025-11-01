@@ -1,7 +1,7 @@
 // @ts-nocheck - TODO: Fix AutoBazaaar types after merge
 // Hyperspell integration for context and memory management
 import axios from 'axios';
-import type { BuyerProfile, Strategy, InteractionRecord } from '../types';
+import type { BuyerProfile, Strategy, InteractionRecord, LegacyTransaction, Transaction } from '../types';
 
 // Hyperspell SDK Interface
 interface HyperspellClient {
@@ -251,20 +251,23 @@ export class ContextStore {
 
     return {
       email,
-      purchaseHistory: completed.map((h: any) => ({
+      purchaseHistory: completed.map((h: any): Transaction => ({
         id: h.id || '',
-        buyerEmail: email,
-        product: h.product,
-        productId: h.productId || '',
-        initialPrice: h.initialPrice || 0,
-        finalPrice: h.finalPrice || 0,
-        cost: 0,
-        profit: 0,
-        status: 'completed' as const,
-        createdAt: new Date(h.timestamp),
-        completedAt: new Date(h.timestamp),
-        negotiationRounds: 0,
-        listingUrls: [],
+        type: 'sale' as const,
+        category: 'inventory' as const,
+        amount: h.finalPrice || 0,
+        currency: 'USD',
+        netAmount: h.finalPrice || 0,
+        counterparty: {
+          type: 'buyer' as const,
+          id: email,
+          email: email,
+        },
+        paymentStatus: 'completed' as const,
+        platform: 'internal',
+        status: 'completed',
+        createdAt: Date.now(),
+        completedAt: new Date(h.timestamp).getTime(),
       })),
       priceSensitivity,
       negotiationStyle,
