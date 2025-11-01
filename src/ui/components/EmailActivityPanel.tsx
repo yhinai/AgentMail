@@ -44,7 +44,16 @@ export default function EmailActivityPanel() {
   const fetchActivity = async () => {
     try {
       const response = await fetch('/api/email/activity?limit=20');
-      if (!response.ok) throw new Error('Failed to fetch activity');
+      if (!response.ok) {
+        const errorData = await response.json();
+        // If Convex not configured, show graceful message
+        if (errorData.message?.includes('deployment address')) {
+          setError('Email activity requires Convex configuration');
+          setLoading(false);
+          return;
+        }
+        throw new Error('Failed to fetch activity');
+      }
 
       const data = await response.json();
       setData(data);
@@ -71,8 +80,16 @@ export default function EmailActivityPanel() {
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4 text-red-600">📧 Email Activity</h2>
-        <p className="text-red-500">Error: {error}</p>
+        <h2 className="text-xl font-semibold mb-4">📧 Email Activity</h2>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-yellow-800 text-sm">
+            ⚠️ {error}
+          </p>
+          <p className="text-yellow-600 text-xs mt-2">
+            Email automation features require Convex database configuration. 
+            Screenshot scraping features are fully operational.
+          </p>
+        </div>
       </div>
     );
   }
