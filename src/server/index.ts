@@ -124,6 +124,152 @@ app.post('/api/scan', async (req: Request, res: Response) => {
   res.json({ success: true, message: 'Market scan queued' });
 });
 
+// Flip Command endpoints
+app.post('/api/commands/flip', async (req: Request, res: Response) => {
+  try {
+    const { command } = req.body;
+    
+    if (!command || typeof command !== 'string') {
+      return res.status(400).json({ error: 'Command is required' });
+    }
+    
+    // Initialize flip command executor
+    const { FlipCommandExecutor } = await import('../core/commands/FlipCommandExecutor');
+    const { CommandParser } = await import('../core/commands/CommandParser');
+    const { BudgetManager } = await import('../core/budget/BudgetManager');
+    const { ApprovalManager } = await import('../core/approval/ApprovalManager');
+    const { DatabaseClient } = await import('../database/client');
+    
+    const db = new DatabaseClient();
+    const parser = new CommandParser({ openai: integrations.openai! });
+    const budgetManager = new BudgetManager({ db });
+    const approvalManager = new ApprovalManager({ db, eventBus });
+    
+    // Get agents from orchestrator
+    const agents = {
+      marketResearch: orchestrator.agentRegistry.get('market-research'),
+      dealAnalyzer: orchestrator.agentRegistry.get('deal-analyzer'),
+      negotiation: orchestrator.agentRegistry.get('negotiation'),
+      listing: orchestrator.agentRegistry.get('listing')
+    };
+    
+    const executor = new FlipCommandExecutor({
+      db,
+      eventBus,
+      commandParser: parser,
+      budgetManager,
+      approvalManager,
+      agents
+    });
+    
+    // Execute command asynchronously
+    executor.executeCommand(command).catch(err => {
+      console.error('Flip command error:', err);
+    });
+    
+    res.json({ success: true, message: 'Flip command started' });
+  } catch (error: any) {
+    console.error('Flip command creation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/commands/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { DatabaseClient } = await import('../database/client');
+    const db = new DatabaseClient();
+    
+    const command = await db.getCommand(id);
+    if (!command) {
+      return res.status(404).json({ error: 'Command not found' });
+    }
+    
+    res.json({ command });
+  } catch (error: any) {
+    console.error('Get command error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approval endpoints
+app.post('/api/approvals/:id/approve', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const { ApprovalManager } = await import('../core/approval/ApprovalManager');
+    const { DatabaseClient } = await import('../database/client');
+    const db = new DatabaseClient();
+    const approvalManager = new ApprovalManager({ db, eventBus });
+    
+    await approvalManager.handleApprovalDecision(id, true, reason);
+    
+    res.json({ success: true, message: 'Approval granted' });
+  } catch (error: any) {
+    console.error('Approve error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/approvals/:id/reject', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const { ApprovalManager } = await import('../core/approval/ApprovalManager');
+    const { DatabaseClient } = await import('../database/client');
+    const db = new DatabaseClient();
+    const approvalManager = new ApprovalManager({ db, eventBus });
+    
+    await approvalManager.handleApprovalDecision(id, false, reason);
+    
+    res.json({ success: true, message: 'Approval rejected' });
+  } catch (error: any) {
+    console.error('Reject error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/approvals/pending', async (req: Request, res: Response) => {
+  try {
+    const { ApprovalManager } = await import('../core/approval/ApprovalManager');
+    const { DatabaseClient } = await import('../database/client');
+    const db = new DatabaseClient();
+    const approvalManager = new ApprovalManager({ db, eventBus });
+    
+    const approvals = await approvalManager.getAllPendingApprovals();
+    
+    res.json({ approvals });
+  } catch (error: any) {
+    console.error('Get approvals error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Budget endpoints
+app.get('/api/budgets/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { BudgetManager } = await import('../core/budget/BudgetManager');
+    const { DatabaseClient } = await import('../database/client');
+    const db = new DatabaseClient();
+    const budgetManager = new BudgetManager({ db });
+    
+    const budget = await budgetManager.getBudget(id);
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    const summary = await budgetManager.getBudgetSummary(id);
+    
+    res.json({ budget, summary });
+  } catch (error: any) {
+    console.error('Get budget error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('API Error:', err);

@@ -632,3 +632,92 @@ export interface RiskFactors {
   platform: string;
   sellerRating?: number;
 }
+
+// ============================================
+// Command & Flip System Types
+// ============================================
+
+export interface FlipCommand {
+  id: string;
+  naturalLanguage: string;
+  parsed: ParsedCommandParams;
+  status: CommandStatus;
+  currentStep: string;
+  budgetId: string;
+  itemsFound: number;
+  itemsPurchased: number;
+  itemsListed: number;
+  createdAt: number;
+  completedAt?: number;
+}
+
+export interface ParsedCommandParams {
+  budget: number;
+  quantity: number;
+  category: string;
+  constraints?: Record<string, any>;
+  minProfitMargin?: number;
+  maxRisk?: number;
+  platforms?: string[];
+}
+
+export type CommandStatus = 
+  | 'parsing' 
+  | 'finding' 
+  | 'negotiating' 
+  | 'purchasing' 
+  | 'listing' 
+  | 'completed' 
+  | 'failed';
+
+export interface Budget {
+  id: string;
+  commandId: string;
+  totalBudget: number;
+  spent: number;
+  reserved: number; // pending transactions
+  remaining: number;
+  status: 'active' | 'exhausted' | 'completed';
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  commandId: string;
+  type: ApprovalType;
+  context: ApprovalContext;
+  status: ApprovalStatus;
+  requestedAt: number;
+  resolvedAt?: number;
+  resolvedBy?: string;
+  reason?: string;
+}
+
+export type ApprovalType = 'find_item' | 'negotiate' | 'purchase' | 'list';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+
+export interface ApprovalContext {
+  step: ApprovalType;
+  opportunity?: EnrichedOpportunity;
+  analysis?: DealAnalysis;
+  negotiationThread?: NegotiationThread;
+  listing?: Listing;
+  expectedProfit?: number;
+  budgetImpact?: number;
+  riskScore?: number;
+  reasoning?: string[];
+}
+
+export interface FlipExecutionState {
+  command: FlipCommand;
+  budget: Budget;
+  currentApproval?: ApprovalRequest;
+  discoveredItems: EnrichedOpportunity[];
+  selectedItem?: EnrichedOpportunity;
+  analysis?: DealAnalysis;
+  negotiation?: NegotiationThread;
+  purchasedItem?: InventoryItem;
+  listings: Listing[];
+}

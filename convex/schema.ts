@@ -493,5 +493,54 @@ export default defineSchema({
     ),
     listingUrls: v.array(v.string()),
     agreedPrice: v.optional(v.number()),
-  }).index('by_thread', ['threadId'])
+  }).index('by_thread', ['threadId']),
+  
+  // Budget management for flip commands
+  budgets: defineTable({
+    commandId: v.id("commands"),
+    totalBudget: v.number(),
+    spent: v.number(),
+    reserved: v.number(), // pending transactions
+    remaining: v.number(),
+    status: v.string(), // 'active' | 'exhausted' | 'completed'
+    createdAt: v.number(),
+    expiresAt: v.number()
+  })
+    .index("by_command", ["commandId"])
+    .index("by_status", ["status"]),
+  
+  // Flip commands for autonomous execution
+  commands: defineTable({
+    naturalLanguage: v.string(),
+    parsed: v.object({
+      budget: v.number(),
+      quantity: v.number(),
+      category: v.string(),
+      constraints: v.any()
+    }),
+    status: v.string(), // 'parsing' | 'finding' | 'negotiating' | 'purchasing' | 'listing' | 'completed' | 'failed'
+    currentStep: v.string(),
+    budgetId: v.id("budgets"),
+    itemsFound: v.number(),
+    itemsPurchased: v.number(),
+    itemsListed: v.number(),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number())
+  })
+    .index("by_status", ["status"])
+    .index("by_budget", ["budgetId"]),
+  
+  // Approval workflow for command steps
+  approvals: defineTable({
+    commandId: v.id("commands"),
+    type: v.string(), // 'find_item' | 'negotiate' | 'purchase' | 'list'
+    context: v.any(), // item details, analysis, etc.
+    status: v.string(), // 'pending' | 'approved' | 'rejected' | 'expired'
+    requestedAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.string()),
+    reason: v.optional(v.string())
+  })
+    .index("by_command", ["commandId"])
+    .index("by_status", ["status"])
 });
