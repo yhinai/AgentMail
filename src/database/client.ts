@@ -455,4 +455,170 @@ export class DatabaseClient {
       agreedPrice: schema.agreedPrice,
     };
   }
+
+  // ============================================
+  // EMAIL OPERATIONS (AgentMail Integration)
+  // ============================================
+
+  /**
+   * Queue an email for processing
+   */
+  async queueEmail(emailData: {
+    messageId: string;
+    threadId?: string;
+    from: string;
+    to: string;
+    subject: string;
+    body: string;
+    receivedAt: Date;
+    priority?: 'low' | 'medium' | 'high';
+    metadata?: any;
+  }): Promise<string> {
+    if (!this.client) {
+      throw new Error('Convex client not initialized');
+    }
+
+    // Use string-based API call as fallback when generated API isn't available
+    const queueEmailFn = getApiFunction('emails.queueEmail') || 'emails:queueEmail' as any;
+
+    const emailId = await this.client.mutation(queueEmailFn, {
+      messageId: emailData.messageId,
+      threadId: emailData.threadId,
+      from: emailData.from,
+      to: emailData.to,
+      subject: emailData.subject,
+      body: emailData.body,
+      receivedAt: emailData.receivedAt.getTime(),
+      priority: emailData.priority || 'medium',
+      metadata: emailData.metadata,
+    });
+
+    return emailId;
+  }
+
+  /**
+   * Get pending emails from queue
+   */
+  async getPendingEmails(limit: number = 10): Promise<any[]> {
+    if (!this.client) {
+      return [];
+    }
+
+    const getPendingEmailsFn = getApiFunction('emails.getPendingEmails') || 'emails:getPendingEmails' as any;
+
+    const emails = await this.client.query(getPendingEmailsFn, { limit });
+    return emails || [];
+  }
+
+  /**
+   * Get email queue statistics
+   */
+  async getQueueStats(): Promise<{
+    total: number;
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+  }> {
+    if (!this.client) {
+      return { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
+    }
+
+    const getQueueStatsFn = getApiFunction('emails.getQueueStats') || 'emails:getQueueStats' as any;
+
+    const stats = await this.client.query(getQueueStatsFn, {});
+    return stats || { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
+  }
+
+  /**
+   * Get email by message ID
+   */
+  async getEmailByMessageId(messageId: string): Promise<any | null> {
+    if (!this.client) {
+      return null;
+    }
+
+    const getEmailByMessageIdFn = getApiFunction('emails.getByMessageId') || 'emails:getByMessageId' as any;
+
+    const email = await this.client.query(getEmailByMessageIdFn, { messageId });
+    return email || null;
+  }
+
+  /**
+   * Update email status
+   */
+  async updateEmailStatus(params: {
+    emailId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    error?: string;
+    metadata?: any;
+  }): Promise<void> {
+    if (!this.client) {
+      throw new Error('Convex client not initialized');
+    }
+
+    const updateStatusFn = getApiFunction('emails.updateEmailStatus') || 'emails:updateEmailStatus' as any;
+
+    await this.client.mutation(updateStatusFn, {
+      emailId: params.emailId as any,
+      status: params.status,
+      error: params.error,
+      metadata: params.metadata,
+    });
+  }
+
+  /**
+   * Log email activity (alias for logEmailActivity)
+   */
+  async logActivity(activity: {
+    emailId: string;
+    type: 'received' | 'sent' | 'analyzed' | 'error';
+    from: string;
+    to?: string;
+    subject: string;
+    summary: string;
+    metadata?: any;
+  }): Promise<string> {
+    return this.logEmailActivity(activity);
+  }
+
+  /**
+   * Log email activity
+   */
+  async logEmailActivity(activity: {
+    emailId: string;
+    type: 'received' | 'sent' | 'analyzed' | 'error';
+    from: string;
+    to?: string;
+    subject: string;
+    summary: string;
+    metadata?: any;
+  }): Promise<string> {
+    if (!this.client) {
+      throw new Error('Convex client not initialized');
+    }
+
+    const logActivityFn = getApiFunction('emails.logActivity') || 'emails:logActivity' as any;
+
+    const activityId = await this.client.mutation(logActivityFn, {
+      ...activity,
+      timestamp: Date.now(),
+    });
+
+    return activityId;
+  }
+
+  /**
+   * Get recent email activity
+   */
+  async getRecentActivity(limit: number = 50): Promise<any[]> {
+    if (!this.client) {
+      return [];
+    }
+
+    const getRecentActivityFn = getApiFunction('emails.getRecentActivity') || 'emails:getRecentActivity' as any;
+
+    const activities = await this.client.query(getRecentActivityFn, { limit });
+    return activities || [];
+  }
 }

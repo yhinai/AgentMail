@@ -45,3 +45,38 @@ lerna-debug.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Binary files
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Backup and temporary files
+*.bak
+*.backup
+*.tmp
+*.temp
+*~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache directories
+.cache/
+.parcel-cache/
+.turbo/
+
+# Local environment and credentials
+.env*.local
+credentials.json
+secrets.json
+config.local.*
+
+# Deployment files
+.vercel
+.netlify

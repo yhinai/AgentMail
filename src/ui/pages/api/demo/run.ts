@@ -10,5 +10,5 @@ export default function handler(
 
   // In production, this would trigger the demo runner
   // For now, just return success
-  res.status(200).json({ success: true, message: 'Demo started' });
+  return res.status(200).json({ success: true, message: 'Demo started' });
 }
