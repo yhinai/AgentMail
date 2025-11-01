@@ -1,4 +1,5 @@
 // Test script for new Browser-Use Agent
+import 'dotenv/config';
 import { BrowserAgent } from './src/agents/browserAgent';
 import type { Product } from './src/types';
 
