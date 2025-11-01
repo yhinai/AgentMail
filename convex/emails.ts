@@ -13,7 +13,9 @@ export const queueEmail = mutation({
     to: v.string(),
     subject: v.string(),
     body: v.string(),
+    receivedAt: v.number(),
     priority: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
+    metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     // Check if email already queued
@@ -34,10 +36,11 @@ export const queueEmail = mutation({
       to: args.to,
       subject: args.subject,
       body: args.body,
-      receivedAt: Date.now(),
+      receivedAt: args.receivedAt,
       status: 'pending',
       priority: args.priority || 'medium',
       retryCount: 0,
+      metadata: args.metadata,
     });
 
     return emailId;
