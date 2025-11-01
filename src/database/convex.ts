@@ -3,15 +3,8 @@
 // For now, it uses the generated server helpers
 // After Convex setup, move this to: convex/mutations.ts and convex/queries.ts
 
-import { mutation, query } from '../convex/_generated/server';
+import { mutation, query } from '../../convex/_generated/server';
 import { v } from 'convex/values';
-import type {
-  TransactionSchema,
-  ProductSchema,
-  BuyerProfileSchema,
-  NegotiationStateSchema,
-  MetricsSchema,
-} from './models';
 
 // Transaction mutations and queries
 export const createTransaction = mutation({
@@ -150,7 +143,12 @@ export const updateBuyerProfile = mutation({
     } else {
       await ctx.db.insert('buyerProfiles', {
         email: args.email,
-        ...args.updates,
+        priceSensitivity: args.updates.priceSensitivity || 'medium',
+        negotiationStyle: args.updates.negotiationStyle || 'cooperative',
+        communicationPreference: args.updates.communicationPreference || 'friendly',
+        totalSpent: args.updates.totalSpent || 0,
+        averageDiscount: args.updates.averageDiscount || 0,
+        lastInteraction: args.updates.lastInteraction,
       });
     }
   },
@@ -235,8 +233,8 @@ export const getMetrics = query({
   handler: async (ctx) => {
     const metrics = await ctx.db.query('metrics').first();
     if (!metrics) {
-      // Initialize default metrics
-      const defaultMetricsId = await ctx.db.insert('metrics', {
+      // Return default metrics without inserting (use initializeMetrics mutation to create)
+      return {
         dealsCompleted: 0,
         totalProfit: 0,
         totalRevenue: 0,
@@ -246,8 +244,7 @@ export const getMetrics = query({
         activeListings: 0,
         emailsProcessed: 0,
         lastUpdated: Date.now(),
-      });
-      return await ctx.db.get(defaultMetricsId);
+      };
     }
     return metrics;
   },

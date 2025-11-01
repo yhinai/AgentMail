@@ -1,6 +1,10 @@
 // Demo runner for ProfitPilot
+import dotenv from 'dotenv';
 import { ProfitPilotOrchestrator } from '../workflows/orchestrator';
 import { scenarios, demoProducts, demoEmails } from './scenarios';
+
+// Load environment variables
+dotenv.config();
 
 export class DemoRunner {
   private orchestrator: ProfitPilotOrchestrator;
