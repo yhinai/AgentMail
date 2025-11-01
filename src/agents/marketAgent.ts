@@ -30,38 +30,26 @@ export class MarketAgent {
       
       if (prices.length === 0) {
         // Fallback to default data
-        return this.getDefaultMarketData(productName);
+        return this.getDefaultMarketData();
       }
 
       // Calculate statistics
-      const sortedPrices = prices.sort((a, b) => a - b);
       const average = this.calculateAverage(prices);
-      const median = this.calculateMedian(sortedPrices);
-      const min = sortedPrices[0];
-      const max = sortedPrices[sortedPrices.length - 1];
-      const optimal = this.calculateOptimalPrice(prices);
-      
-      // Determine demand based on response content
-      const demand = this.calculateDemand(response);
-      
-      // Determine trend (simplified - would need historical data)
-      const trend = this.determineTrend(prices);
+      const volatility = this.calculateVolatility(prices);
+      const demandScore = this.calculateDemandScore(response);
+      const insights = this.extractInsights(response);
 
       return {
-        productName,
-        average,
-        median,
-        optimal,
-        min,
-        max,
-        demand,
-        trend,
+        averagePrice: average,
+        pricePoints: prices,
+        volatility: volatility,
+        demandScore: demandScore,
         competitorCount: prices.length,
-        timestamp: new Date(),
+        insights: insights,
       };
     } catch (error) {
       console.error('Error analyzing product:', error);
-      return this.getDefaultMarketData(productName);
+      return this.getDefaultMarketData();
     }
   }
 
@@ -133,80 +121,67 @@ export class MarketAgent {
   }
 
   /**
-   * Calculate median price
+   * Calculate volatility (standard deviation as percentage of average)
    */
-  private calculateMedian(sortedPrices: number[]): number {
-    if (sortedPrices.length === 0) return 0;
-    const mid = Math.floor(sortedPrices.length / 2);
-    if (sortedPrices.length % 2 === 0) {
-      return Math.round((sortedPrices[mid - 1] + sortedPrices[mid]) / 2);
-    }
-    return sortedPrices[mid];
-  }
-
-  /**
-   * Calculate optimal selling price
-   */
-  private calculateOptimalPrice(prices: number[]): number {
+  private calculateVolatility(prices: number[]): number {
     if (prices.length === 0) return 0;
     
-    // Use 75th percentile as optimal (higher than median but not max)
-    const sorted = [...prices].sort((a, b) => a - b);
-    const index = Math.floor(sorted.length * 0.75);
-    return sorted[index] || sorted[sorted.length - 1];
+    const avg = this.calculateAverage(prices);
+    const variance = prices.reduce((sum, price) => sum + Math.pow(price - avg, 2), 0) / prices.length;
+    const stdDev = Math.sqrt(variance);
+    
+    return stdDev / avg;
   }
 
   /**
-   * Calculate demand level from response text
+   * Calculate demand score from response text (0-1)
    */
-  private calculateDemand(text: string): 'low' | 'medium' | 'high' {
+  private calculateDemandScore(text: string): number {
     const lowerText = text.toLowerCase();
     
+    let score = 0.5; // default medium
+    
     if (lowerText.includes('high demand') || lowerText.includes('popular') || lowerText.includes('sought after')) {
-      return 'high';
+      score = 0.8;
+    } else if (lowerText.includes('extremely popular') || lowerText.includes('selling out')) {
+      score = 1.0;
+    } else if (lowerText.includes('low demand') || lowerText.includes('rare') || lowerText.includes('hard to find')) {
+      score = 0.2;
+    } else if (lowerText.includes('no interest') || lowerText.includes('not selling')) {
+      score = 0.0;
     }
-    if (lowerText.includes('low demand') || lowerText.includes('rare') || lowerText.includes('hard to find')) {
-      return 'low';
-    }
-    return 'medium';
+    
+    return score;
   }
 
   /**
-   * Determine price trend
+   * Extract insights from response text
    */
-  private determineTrend(prices: number[]): 'rising' | 'stable' | 'falling' {
-    if (prices.length < 2) return 'stable';
+  private extractInsights(text: string): string[] {
+    const insights: string[] = [];
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
     
-    // Simple heuristic: compare first half vs second half
-    const mid = Math.floor(prices.length / 2);
-    const firstHalf = prices.slice(0, mid);
-    const secondHalf = prices.slice(mid);
+    // Extract key sentences as insights
+    for (const sentence of sentences.slice(0, 3)) {
+      if (sentence.length < 200) {
+        insights.push(sentence.trim());
+      }
+    }
     
-    const firstAvg = this.calculateAverage(firstHalf);
-    const secondAvg = this.calculateAverage(secondHalf);
-    
-    const diff = ((secondAvg - firstAvg) / firstAvg) * 100;
-    
-    if (diff > 5) return 'rising';
-    if (diff < -5) return 'falling';
-    return 'stable';
+    return insights.length > 0 ? insights : ['Market data retrieved successfully'];
   }
 
   /**
    * Get default market data when analysis fails
    */
-  private getDefaultMarketData(productName: string): MarketData {
+  private getDefaultMarketData(): MarketData {
     return {
-      productName,
-      average: 100,
-      median: 100,
-      optimal: 120,
-      min: 80,
-      max: 150,
-      demand: 'medium',
-      trend: 'stable',
+      averagePrice: 100,
+      pricePoints: [80, 100, 120, 150],
+      volatility: 0.15,
+      demandScore: 0.5,
       competitorCount: 0,
-      timestamp: new Date(),
+      insights: ['Unable to retrieve market data'],
     };
   }
 
