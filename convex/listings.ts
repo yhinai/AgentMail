@@ -135,19 +135,14 @@ export const getOpportunities = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let queryBuilder = ctx.db.query("opportunities");
-
-    // Use status index if status is provided
-    if (args.status) {
-      queryBuilder = queryBuilder.withIndex("by_status", (q) => q.eq("status", args.status));
-    } else {
-      // Otherwise use discovered index
-      queryBuilder = queryBuilder.withIndex("by_discovered", (q) => q);
-    }
+    // Query opportunities with appropriate index
+    const query = args.status
+      ? ctx.db.query("opportunities").withIndex("by_status", (q) => q.eq("status", args.status!))
+      : ctx.db.query("opportunities").withIndex("by_discovered");
 
     const results: any[] = [];
-    
-    for (const opportunity of await queryBuilder.collect()) {
+
+    for (const opportunity of await query.collect()) {
       // Apply filters
       if (args.category && opportunity.category !== args.category) continue;
       if (args.platform && opportunity.platform !== args.platform) continue;
