@@ -40,7 +40,7 @@ export class PerplexityIntegration {
   
   async search(options: PerplexitySearchOptions): Promise<PerplexitySearchResult> {
     const response = await this.client.post('/chat/completions', {
-      model: 'llama-3.1-sonar-large-128k-online',
+      model: 'sonar',
       messages: [
         {
           role: 'user',
@@ -70,7 +70,7 @@ export class PerplexityIntegration {
     try {
       // Simple health check - try a minimal search
       await this.client.post('/chat/completions', {
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 1
       }, { timeout: 5000 });

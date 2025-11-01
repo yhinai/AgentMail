@@ -65,7 +65,7 @@ export class MarketAgent {
       const response = await axios.post(
         `${this.perplexityBaseUrl}/chat/completions`,
         {
-          model: 'llama-3.1-sonar-large-128k-online',
+          model: 'sonar',
           messages: [
             {
               role: 'user',
