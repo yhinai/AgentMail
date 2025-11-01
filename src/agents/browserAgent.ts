@@ -1,346 +1,77 @@
-// BrowserAgent - Browser-Use integration for web automation
+// BrowserAgent - Browser-Use Cloud API integration for AI-powered web automation
 import axios from 'axios';
-import type { Product, Listing, ListingResults } from '../types';
+import type { Product, ListingResults } from '../types';
 
-// Browser-Use SDK Interface - matches @browser-use/sdk pattern
-interface BrowserUseClient {
-  newSession(options?: { headless?: boolean }): Promise<BrowserSession>;
+interface BrowserUseTask {
+  id: string;
+  task: string;
+  status: 'queued' | 'running' | 'finished' | 'failed' | 'error';
+  output: string | null;
+  live_url: string;
+  created_at: string;
+  finished_at: string | null;
+  steps: any[];
+  browser_data: {
+    cookies: any[];
+  };
+  output_files: string[];
 }
 
-interface BrowserSession {
-  navigate(url: string): Promise<void>;
-  click(selector: string): Promise<void>;
-  fill(selector: string, value: string): Promise<void>;
-  uploadFile(selector: string, filePath: string): Promise<void>;
-  getCurrentUrl(): Promise<string>;
-  waitFor(selector: string, timeout?: number): Promise<void>;
-  screenshot(path?: string): Promise<string>;
-  close(): Promise<void>;
-  evaluate<T>(script: string): Promise<T>;
-}
-
-// Real Browser-Use SDK Implementation using HTTP API
-class BrowserUseSDK implements BrowserUseClient {
-  private apiKey: string;
-  private baseUrl: string;
-
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
-    this.baseUrl = process.env.BROWSER_USE_API_URL || 'https://api.browser-use.com/v1';
-  }
-
-  async newSession(options?: { headless?: boolean }): Promise<BrowserSession> {
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/sessions`,
-        { headless: options?.headless ?? true },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const sessionId = response.data.sessionId;
-      return new BrowserUseSession(sessionId, this.apiKey, this.baseUrl);
-    } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        // Fallback to mock implementation
-        console.warn('Browser-Use API not configured, using fallback');
-        return new MockBrowserSession();
-      }
-      throw new Error(`Failed to create browser session: ${error.message}`);
-    }
-  }
-}
-
-// Browser-Use Session Implementation
-class BrowserUseSession implements BrowserSession {
-  private sessionId: string;
-  private apiKey: string;
-  private baseUrl: string;
-  private currentUrl: string = '';
-
-  constructor(sessionId: string, apiKey: string, baseUrl: string) {
-    this.sessionId = sessionId;
-    this.apiKey = apiKey;
-    this.baseUrl = baseUrl;
-  }
-
-  async navigate(url: string): Promise<void> {
-    try {
-      await axios.post(
-        `${this.baseUrl}/sessions/${this.sessionId}/navigate`,
-        { url },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      this.currentUrl = url;
-    } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        this.currentUrl = url;
-        return;
-      }
-      throw new Error(`Failed to navigate: ${error.message}`);
-    }
-  }
-
-  async click(selector: string): Promise<void> {
-    try {
-      await axios.post(
-        `${this.baseUrl}/sessions/${this.sessionId}/click`,
-        { selector },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        console.log(`[Browser] Clicking ${selector}`);
-        return;
-      }
-      throw new Error(`Failed to click: ${error.message}`);
-    }
-  }
-
-  async fill(selector: string, value: string): Promise<void> {
-    try {
-      await axios.post(
-        `${this.baseUrl}/sessions/${this.sessionId}/fill`,
-        { selector, value },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        console.log(`[Browser] Filling ${selector} with "${value}"`);
-        return;
-      }
-      throw new Error(`Failed to fill: ${error.message}`);
-    }
-  }
-
-  async uploadFile(selector: string, filePath: string): Promise<void> {
-    try {
-      // Read file and convert to base64
-      const fs = require('fs');
-      const fileContent = fs.readFileSync(filePath);
-      const base64Content = fileContent.toString('base64');
-
-      await axios.post(
-        `${this.baseUrl}/sessions/${this.sessionId}/upload`,
-        { selector, file: base64Content, filename: filePath.split('/').pop() },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        console.log(`[Browser] Uploading file ${filePath} to ${selector}`);
-        return;
-      }
-      throw new Error(`Failed to upload file: ${error.message}`);
-    }
-  }
-
-  async getCurrentUrl(): Promise<string> {
-    try {
-      const response = await axios.get(
-        `${this.baseUrl}/sessions/${this.sessionId}/url`,
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-          },
-        }
-      );
-      return response.data.url || this.currentUrl;
-    } catch (error: any) {
-      return this.currentUrl || 'https://example.com/listing';
-    }
-  }
-
-  async waitFor(selector: string, timeout?: number): Promise<void> {
-    try {
-      await axios.post(
-        `${this.baseUrl}/sessions/${this.sessionId}/wait`,
-        { selector, timeout: timeout || 5000 },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    } catch (error: any) {
-      // Wait locally if API fails
-      await this.delay(timeout || 1000);
-    }
-  }
-
-  async screenshot(path?: string): Promise<string> {
-    try {
-      const response = await axios.get(
-        `${this.baseUrl}/sessions/${this.sessionId}/screenshot`,
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-          },
-        }
-      );
-      return response.data.screenshot;
-    } catch (error: any) {
-      return '';
-    }
-  }
-
-  async evaluate<T>(script: string): Promise<T> {
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/sessions/${this.sessionId}/evaluate`,
-        { script },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      return response.data.result;
-    } catch (error: any) {
-      throw new Error(`Failed to evaluate script: ${error.message}`);
-    }
-  }
-
-  async close(): Promise<void> {
-    try {
-      await axios.delete(`${this.baseUrl}/sessions/${this.sessionId}`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      });
-    } catch (error: any) {
-      // Silently fail on close
-    }
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-}
-
-// Mock Browser Session (fallback)
-class MockBrowserSession implements BrowserSession {
-  private currentUrl: string = '';
-
-  async navigate(url: string): Promise<void> {
-    this.currentUrl = url;
-    console.log(`[Browser] Navigating to ${url}`);
-    await this.delay(1000);
-  }
-
-  async click(selector: string): Promise<void> {
-    console.log(`[Browser] Clicking ${selector}`);
-    await this.delay(500);
-  }
-
-  async fill(selector: string, value: string): Promise<void> {
-    console.log(`[Browser] Filling ${selector} with "${value}"`);
-    await this.delay(500);
-  }
-
-  async uploadFile(selector: string, filePath: string): Promise<void> {
-    console.log(`[Browser] Uploading file ${filePath} to ${selector}`);
-    await this.delay(1000);
-  }
-
-  async getCurrentUrl(): Promise<string> {
-    return this.currentUrl || 'https://example.com/listing';
-  }
-
-  async waitFor(selector: string, timeout?: number): Promise<void> {
-    console.log(`[Browser] Waiting for ${selector}`);
-    await this.delay(timeout || 1000);
-  }
-
-  async screenshot(path?: string): Promise<string> {
-    return '';
-  }
-
-  async evaluate<T>(script: string): Promise<T> {
-    return undefined as T;
-  }
-
-  async close(): Promise<void> {
-    console.log(`[Browser] Closing session`);
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+interface TaskResult {
+  success: boolean;
+  output?: string;
+  liveUrl?: string;
+  error?: string;
 }
 
 export class BrowserAgent {
-  private browser: BrowserUseClient;
+  private apiKey: string;
+  private baseUrl: string;
   private platforms: Array<'craigslist' | 'facebook' | 'ebay'> = ['craigslist', 'facebook', 'ebay'];
-  private rateLimits: Map<string, number> = new Map();
 
   constructor() {
-    const apiKey = process.env.BROWSER_USE_API_KEY || '';
-    
-    // Initialize Browser-Use client with real SDK
-    if (apiKey) {
-      this.browser = new BrowserUseSDK(apiKey);
+    this.apiKey = process.env.BROWSER_USE_API_KEY || '';
+    this.baseUrl = 'https://api.browser-use.com/api/v1';
+
+    if (!this.apiKey) {
+      console.warn('[Browser-Use] API key not configured');
     } else {
-      // Try to use @browser-use/sdk if installed
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const BrowserUse = require('@browser-use/sdk');
-        this.browser = new BrowserUse({ apiKey });
-      } catch {
-        // Use HTTP API implementation with fallback
-        this.browser = new BrowserUseSDK('');
-        console.warn('Browser-Use SDK not found, using HTTP API fallback');
-      }
+      console.log('[Browser-Use] ✅ Initialized with Cloud API');
     }
   }
 
   /**
-   * Create listings on multiple platforms
+   * Create listings on multiple platforms using AI-powered browser automation
    */
   async createListings(product: Product): Promise<ListingResults> {
+    console.log(`\n[Browser-Use] Creating listings for: ${product.title}`);
+
     const results: ListingResults = {
       success: [],
       failed: [],
       urls: {},
     };
 
+    // Create listings sequentially to avoid overwhelming the API
     for (const platform of this.platforms) {
       try {
-        // Rate limiting
-        await this.checkRateLimit(platform);
+        console.log(`[Browser-Use] Creating ${platform} listing...`);
+        const url = await this.createListingWithRetry(platform, product, 2);
 
-        const url = await this.createListing(platform, product);
         results.success.push(platform);
         results.urls[platform] = url;
-        console.log(`Listing created on ${platform}: ${url}`);
-      } catch (error) {
-        console.error(`Failed to create listing on ${platform}:`, error);
+        console.log(`[Browser-Use] ✅ ${platform}: ${url}`);
+      } catch (error: any) {
+        console.error(`[Browser-Use] ❌ ${platform} failed:`, error.message);
         results.failed.push(platform);
+
+        // Use fallback URL for failed platforms
+        results.urls[platform] = this.getFallbackUrl(platform);
+      }
+
+      // Rate limiting: wait between platform requests
+      if (platform !== this.platforms[this.platforms.length - 1]) {
+        await this.delay(3000); // 3 second delay between platforms
       }
     }
 
@@ -348,200 +79,322 @@ export class BrowserAgent {
   }
 
   /**
-   * Create a listing on a specific platform
+   * Create a platform listing with retry logic
    */
-  private async createListing(
+  private async createListingWithRetry(
+    platform: 'craigslist' | 'facebook' | 'ebay',
+    product: Product,
+    maxRetries: number = 2
+  ): Promise<string> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const taskId = await this.createPlatformListingTask(platform, product);
+        console.log(`[Browser-Use] Task created: ${taskId}`);
+
+        const result = await this.waitForTask(taskId, 90000); // 90 second timeout
+
+        if (result.success && result.output) {
+          // Extract URL from output
+          const url = this.extractUrl(result.output, platform);
+          if (url) {
+            return url;
+          }
+
+          // If no URL found in output, use live_url or fallback
+          if (result.liveUrl) {
+            console.log(`[Browser-Use] No URL in output, using live session: ${result.liveUrl}`);
+          }
+
+          return result.output; // Return the output text if no URL found
+        } else {
+          console.warn(`[Browser-Use] Task failed (attempt ${attempt}/${maxRetries}): ${result.error}`);
+
+          if (attempt < maxRetries) {
+            console.log(`[Browser-Use] Retrying in ${attempt * 2} seconds...`);
+            await this.delay(attempt * 2000); // Exponential backoff
+          }
+        }
+      } catch (error: any) {
+        console.error(`[Browser-Use] Error on attempt ${attempt}:`, error.message);
+
+        if (attempt < maxRetries) {
+          await this.delay(attempt * 2000);
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error(`Failed to create ${platform} listing after ${maxRetries} attempts`);
+  }
+
+  /**
+   * Create a browser automation task for a specific platform
+   */
+  private async createPlatformListingTask(
     platform: 'craigslist' | 'facebook' | 'ebay',
     product: Product
   ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('Browser-Use API key not configured');
+    }
+
+    const instruction = this.buildListingInstruction(platform, product);
+
+    console.log(`[Browser-Use] Sending task to AI: ${instruction.substring(0, 100)}...`);
+
+    const response = await axios.post(
+      `${this.baseUrl}/run-task`,
+      { task: instruction },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.id;
+  }
+
+  /**
+   * Build natural language instruction for platform listing
+   */
+  private buildListingInstruction(
+    platform: 'craigslist' | 'facebook' | 'ebay',
+    product: Product
+  ): string {
+    const baseInfo = `
+Title: "${product.title}"
+Price: $${product.targetPrice}
+Description: "${product.description}"
+Condition: ${product.condition || 'used'}
+`.trim();
+
     switch (platform) {
       case 'craigslist':
-        return await this.createCraigslistListing(product);
+        return `
+Go to craigslist.org and create a new listing in the electronics or appropriate category.
+
+${baseInfo}
+
+Steps:
+1. Navigate to craigslist.org
+2. Click "post to classifieds"
+3. Select the most appropriate category (electronics, for sale, etc.)
+4. Fill in the listing form with the information above
+5. Submit the listing
+6. Extract and return the final listing URL
+
+Return the listing URL in your response.
+`.trim();
+
       case 'facebook':
-        return await this.createFacebookListing(product);
+        return `
+Navigate to Facebook Marketplace and create a new listing.
+
+${baseInfo}
+
+Steps:
+1. Go to facebook.com/marketplace
+2. Click "Create new listing" or "+ Sell something"
+3. Select "Item for sale"
+4. Fill in the listing details with the information above
+5. Select appropriate category
+6. Publish the listing
+7. Extract and return the listing URL
+
+Return the marketplace listing URL in your response.
+`.trim();
+
       case 'ebay':
-        return await this.createEbayListing(product);
+        return `
+Go to eBay and list this item for sale.
+
+${baseInfo}
+
+Steps:
+1. Navigate to ebay.com
+2. Click "Sell" or go to selling center
+3. Create a new listing
+4. Fill in the item details with the information above
+5. Set the listing type (buy it now, auction, etc.)
+6. Complete and publish the listing
+7. Extract and return the item listing URL
+
+Return the eBay item URL in your response.
+`.trim();
+
       default:
         throw new Error(`Unsupported platform: ${platform}`);
     }
   }
 
   /**
-   * Create Craigslist listing
+   * Poll task status until completion
    */
-  private async createCraigslistListing(product: Product): Promise<string> {
-    const session = await this.browser.newSession();
-    
-    try {
-      await session.navigate('https://post.craigslist.org');
-      await session.waitFor('a[href*="select"]');
-      await session.click('a[href*="select"]'); // Select category
-      await this.delay(500);
-      
-      // Fill in listing form
-      await session.waitFor('#PostingTitle');
-      await session.fill('#PostingTitle', product.title);
-      await session.fill('#PostingBody', product.description);
-      await session.fill('#Ask', product.targetPrice.toString());
-      
-      // Handle images if available
-      if (product.images && product.images.length > 0) {
-        // Upload first image (simplified)
-        await session.uploadFile('input[type="file"]', product.images[0]);
+  private async waitForTask(taskId: string, maxWaitMs: number = 90000): Promise<TaskResult> {
+    const startTime = Date.now();
+    const pollInterval = 3000; // 3 seconds
+    let lastStatus = '';
+
+    while (Date.now() - startTime < maxWaitMs) {
+      const task = await this.getTaskStatus(taskId);
+
+      if (task.status !== lastStatus) {
+        console.log(`[Browser-Use] Task status: ${task.status}`);
+        lastStatus = task.status;
       }
-      
-      // Submit form
-      await session.click('button[type="submit"]');
-      await session.waitFor('.posted');
-      
-      const url = await session.getCurrentUrl();
-      return url;
-    } finally {
-      await session.close();
+
+      if (task.status === 'finished') {
+        return {
+          success: true,
+          output: task.output || '',
+          liveUrl: task.live_url
+        };
+      }
+
+      if (task.status === 'failed' || task.status === 'error') {
+        return {
+          success: false,
+          error: task.output || 'Task failed without error message'
+        };
+      }
+
+      // Still running or queued, wait and check again
+      await this.delay(pollInterval);
     }
+
+    throw new Error(`Task timeout after ${maxWaitMs}ms`);
   }
 
   /**
-   * Create Facebook Marketplace listing
+   * Get task status from API
    */
-  private async createFacebookListing(product: Product): Promise<string> {
-    const session = await this.browser.newSession();
-    
-    try {
-      await session.navigate('https://www.facebook.com/marketplace/create');
-      await session.waitFor('input[placeholder*="Title"]');
-      
-      // Fill in form
-      await session.fill('input[placeholder*="Title"]', product.title);
-      await session.fill('textarea[placeholder*="Description"]', product.description);
-      await session.fill('input[placeholder*="Price"]', product.targetPrice.toString());
-      
-      // Upload images
-      if (product.images && product.images.length > 0) {
-        await session.uploadFile('input[type="file"]', product.images[0]);
-      }
-      
-      // Publish
-      await session.click('button:contains("Publish")');
-      await session.waitFor('.listing-published');
-      
-      const url = await session.getCurrentUrl();
-      return url;
-    } finally {
-      await session.close();
-    }
-  }
-
-  /**
-   * Create eBay listing
-   */
-  private async createEbayListing(product: Product): Promise<string> {
-    const session = await this.browser.newSession();
-    
-    try {
-      await session.navigate('https://www.ebay.com/sl/sell');
-      await session.click('a[href*="sell"]');
-      await session.waitFor('#title');
-      
-      // Fill in form
-      await session.fill('#title', product.title);
-      await session.fill('#description', product.description);
-      await session.fill('#price', product.targetPrice.toString());
-      
-      // Select condition
-      if (product.condition) {
-        await session.click(`#condition option[value="${product.condition}"]`);
-      }
-      
-      // Upload images
-      if (product.images && product.images.length > 0) {
-        for (let i = 0; i < Math.min(product.images.length, 12); i++) {
-          await session.uploadFile(`#image-upload-${i}`, product.images[i]);
+  private async getTaskStatus(taskId: string): Promise<BrowserUseTask> {
+    const response = await axios.get(
+      `${this.baseUrl}/task/${taskId}`, // Note: singular "task", not "tasks"
+      {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
         }
       }
-      
-      // List item
-      await session.click('button#list-item-button');
-      await session.waitFor('.listing-confirmed');
-      
-      const url = await session.getCurrentUrl();
-      return url;
-    } finally {
-      await session.close();
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Extract URL from task output text
+   */
+  private extractUrl(text: string, platform: string): string | null {
+    // Try to find URLs in the text
+    const urlPatterns = [
+      /https?:\/\/[^\s<>"]+/gi,  // General URL pattern
+      /craigslist\.org\/[^\s<>"]+/gi,  // Craigslist specific
+      /facebook\.com\/marketplace\/[^\s<>"]+/gi,  // Facebook specific
+      /ebay\.com\/[^\s<>"]+/gi  // eBay specific
+    ];
+
+    for (const pattern of urlPatterns) {
+      const matches = text.match(pattern);
+      if (matches && matches.length > 0) {
+        // Return the first URL that matches the platform
+        for (const url of matches) {
+          if (url.toLowerCase().includes(platform.toLowerCase())) {
+            return url;
+          }
+        }
+        // If no platform-specific URL, return the first URL
+        return matches[0];
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get fallback URL when listing creation fails
+   */
+  private getFallbackUrl(platform: 'craigslist' | 'facebook' | 'ebay'): string {
+    switch (platform) {
+      case 'craigslist':
+        return 'https://post.craigslist.org';
+      case 'facebook':
+        return 'https://www.facebook.com/marketplace/create';
+      case 'ebay':
+        return 'https://www.ebay.com/sl/sell';
+      default:
+        return `https://${platform}.com`;
     }
   }
 
   /**
-   * Mark listing as sold
+   * Mark listing as sold (future implementation)
    */
   async markAsSold(listingUrls: string[]): Promise<void> {
+    console.log('[Browser-Use] Marking listings as sold...');
+
     for (const url of listingUrls) {
       try {
-        await this.updateListingStatus(url, 'sold');
-      } catch (error) {
-        console.error(`Failed to mark listing as sold: ${url}`, error);
+        const taskId = await this.createTask(
+          `Go to ${url} and mark the listing as sold or remove it`
+        );
+
+        const result = await this.waitForTask(taskId, 60000);
+
+        if (result.success) {
+          console.log(`[Browser-Use] ✅ Marked as sold: ${url}`);
+        } else {
+          console.warn(`[Browser-Use] ⚠️  Could not mark as sold: ${url}`);
+        }
+      } catch (error: any) {
+        console.error(`[Browser-Use] ❌ Error marking as sold ${url}:`, error.message);
       }
     }
   }
 
   /**
-   * Update listing price
+   * Update listing price (future implementation)
    */
   async updatePrice(url: string, newPrice: number): Promise<void> {
-    const session = await this.browser.newSession();
-    
     try {
-      await session.navigate(url);
-      
-      // Platform-specific logic to update price
-      await session.click('button.edit-listing');
-      await session.fill('#price', newPrice.toString());
-      await session.click('button.save');
-      await session.waitFor('.updated');
-    } finally {
-      await session.close();
-    }
-  }
+      const taskId = await this.createTask(
+        `Go to ${url} and update the price to $${newPrice}`
+      );
 
-  /**
-   * Update listing status
-   */
-  private async updateListingStatus(url: string, status: 'sold' | 'removed'): Promise<void> {
-    const session = await this.browser.newSession();
-    
-    try {
-      await session.navigate(url);
-      
-      if (status === 'sold') {
-        await session.click('button.mark-sold');
+      const result = await this.waitForTask(taskId, 60000);
+
+      if (result.success) {
+        console.log(`[Browser-Use] ✅ Price updated to $${newPrice}`);
       } else {
-        await session.click('button.remove-listing');
+        console.warn(`[Browser-Use] ⚠️  Could not update price`);
       }
-      
-      await session.waitFor('.status-updated');
-    } finally {
-      await session.close();
+    } catch (error: any) {
+      console.error(`[Browser-Use] ❌ Error updating price:`, error.message);
     }
   }
 
   /**
-   * Check and enforce rate limiting
+   * Generic task creation helper
    */
-  private async checkRateLimit(platform: string): Promise<void> {
-    const now = Date.now();
-    const lastRequest = this.rateLimits.get(platform) || 0;
-    const timeSinceLastRequest = now - lastRequest;
-    
-    // Rate limit: max 1 request per 5 seconds per platform
-    const minInterval = 5000;
-    
-    if (timeSinceLastRequest < minInterval) {
-      const waitTime = minInterval - timeSinceLastRequest;
-      console.log(`Rate limiting: waiting ${waitTime}ms before ${platform} request`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+  private async createTask(instruction: string): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('Browser-Use API key not configured');
     }
-    
-    this.rateLimits.set(platform, Date.now());
+
+    const response = await axios.post(
+      `${this.baseUrl}/run-task`,
+      { task: instruction },
+      {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.id;
   }
 
   /**
