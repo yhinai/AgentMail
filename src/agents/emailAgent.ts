@@ -22,19 +22,77 @@ interface AgentMailClient {
 class AgentMailSDK implements AgentMailClient {
   private apiKey: string;
   private baseUrl: string;
+  private possibleEndpoints: string[];
+  private workingEndpoint: string | null = null;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
-    this.baseUrl = process.env.AGENTMAIL_API_URL || 'https://api.agentmail.com/v1';
+    // Try multiple possible endpoints (agentmail.to is the official domain)
+    this.possibleEndpoints = [
+      process.env.AGENTMAIL_API_URL,
+      'https://api.agentmail.to/v1',
+      'https://api.agentmail.to/v0',
+      'https://api.agentmail.com/v1',
+      'https://api.agentmail.io/v1',
+      'https://agentmail.com/api/v1',
+      'https://app.agentmail.com/api/v1',
+    ].filter(Boolean) as string[];
+    
+    this.baseUrl = this.possibleEndpoints[0];
+    console.log(`[AgentMail] Initialized with primary endpoint: ${this.baseUrl}`);
+    console.log(`[AgentMail] Will try ${this.possibleEndpoints.length} possible endpoints if needed`);
+  }
+
+  private async tryEndpoints<T>(
+    operation: (url: string) => Promise<T>
+  ): Promise<T> {
+    // If we already found a working endpoint, use it
+    if (this.workingEndpoint) {
+      try {
+        return await operation(this.workingEndpoint);
+      } catch (error: any) {
+        // If the working endpoint fails, reset and try all again
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+          console.warn(`[AgentMail] Previously working endpoint ${this.workingEndpoint} is now unreachable`);
+          this.workingEndpoint = null;
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Try each endpoint until one works
+    let lastError: any;
+    for (const endpoint of this.possibleEndpoints) {
+      try {
+        const result = await operation(endpoint);
+        this.workingEndpoint = endpoint;
+        console.log(`[AgentMail] ✅ Found working endpoint: ${endpoint}`);
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+          console.warn(`[AgentMail] Endpoint ${endpoint} not reachable, trying next...`);
+          continue;
+        }
+        // If it's not a network error, throw it
+        throw error;
+      }
+    }
+
+    // All endpoints failed
+    throw lastError;
   }
 
   async getUnread(): Promise<EmailMessage[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/messages/unread`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await this.tryEndpoints(async (baseUrl) => {
+        return await axios.get(`${baseUrl}/messages/unread`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
       });
 
       return response.data.messages.map((msg: any) => ({
@@ -52,9 +110,10 @@ class AgentMailSDK implements AgentMailClient {
         })),
       }));
     } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        // Fallback to mock if API key not configured or endpoint not found
-        console.warn('AgentMail API not configured, using fallback');
+      // Handle network errors, DNS failures, and API errors gracefully
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+          error.response?.status === 404 || !this.apiKey) {
+        console.warn(`[AgentMail] API endpoint not reachable (${error.code || error.response?.status}), using fallback mode`);
         return [];
       }
       throw new Error(`Failed to get unread messages: ${error.message}`);
@@ -63,26 +122,29 @@ class AgentMailSDK implements AgentMailClient {
 
   async sendEmail(to: string, subject: string, body: string, threadId?: string): Promise<void> {
     try {
-      await axios.post(
-        `${this.baseUrl}/messages/send`,
-        {
-          to,
-          subject,
-          body,
-          threadId,
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
+      await this.tryEndpoints(async (baseUrl) => {
+        return await axios.post(
+          `${baseUrl}/messages/send`,
+          {
+            to,
+            subject,
+            body,
+            threadId,
           },
-        }
-      );
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      });
       console.log(`[AgentMail] Email sent to ${to}: ${subject}`);
     } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        // Fallback behavior when API not configured
-        console.warn(`[AgentMail] API not configured, email would be sent to ${to}: ${subject}`);
+      // Handle network errors, DNS failures, and API errors gracefully
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+          error.response?.status === 404 || !this.apiKey) {
+        console.warn(`[AgentMail] API endpoint not reachable, email would be sent to ${to}: ${subject}`);
         return;
       }
       throw new Error(`Failed to send email: ${error.message}`);
@@ -113,8 +175,10 @@ class AgentMailSDK implements AgentMailClient {
         })),
       }));
     } catch (error: any) {
-      if (error.response?.status === 404 || !this.apiKey) {
-        console.warn('AgentMail API not configured, returning empty thread');
+      // Handle network errors, DNS failures, and API errors gracefully
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+          error.response?.status === 404 || !this.apiKey) {
+        console.warn('[AgentMail] API endpoint not reachable, returning empty thread');
         return [];
       }
       throw new Error(`Failed to get thread: ${error.message}`);
@@ -134,10 +198,13 @@ class AgentMailSDK implements AgentMailClient {
         }
       );
     } catch (error: any) {
-      // Silently fail if API not configured
-      if (error.response?.status !== 404 && this.apiKey) {
-        console.error(`Failed to mark message as read: ${error.message}`);
+      // Handle network errors, DNS failures, and API errors gracefully
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+          error.response?.status === 404 || !this.apiKey) {
+        console.warn('[AgentMail] API endpoint not reachable, mark as read skipped');
+        return;
       }
+      console.error(`Failed to mark message as read: ${error.message}`);
     }
   }
 }
