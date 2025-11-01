@@ -1,0 +1,10 @@
+{
+  "projects": {
+    "dev": {
+      "url": "https://pastel-porcupine-488.convex.cloud"
+    },
+    "prod": {
+      "url": "https://pastel-porcupine-488.convex.cloud"
+    }
+  }
+}

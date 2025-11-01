@@ -20,6 +20,21 @@ try {
   console.warn('Convex API not generated. Run `npx convex dev` to generate.');
 }
 
+// Helper to safely access API functions
+function getApiFunction(path: string) {
+  if (!api) return undefined;
+  const parts = path.split('.');
+  let current: any = api;
+  for (const part of parts) {
+    if (current && typeof current === 'object' && part in current) {
+      current = current[part];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
 export class DatabaseClient {
   private client: ConvexHttpClient;
   private convexUrl: string;
@@ -56,10 +71,11 @@ export class DatabaseClient {
     }
 
     // Real Convex mutation
-    if (!api) {
+    const createTransactionFn = getApiFunction('legacy.createTransaction');
+    if (!createTransactionFn) {
       throw new Error('Convex API not available. Run `npx convex dev` first.');
     }
-    const transactionId = await this.client.mutation(api.createTransaction, {
+    const transactionId = await this.client.mutation(createTransactionFn, {
       buyerEmail: data.buyerEmail,
       product: data.product,
       productId: data.productId,
@@ -73,7 +89,9 @@ export class DatabaseClient {
       completedAt: data.completedAt ? new Date(data.completedAt).getTime() : undefined,
     });
 
-    const transaction = await this.client.query(api.getTransaction, { id: transactionId });
+    const getTransactionFn = getApiFunction('legacy.getTransaction');
+    if (!getTransactionFn) throw new Error('Convex API not available');
+    const transaction = await this.client.query(getTransactionFn, { id: transactionId });
     if (!transaction) {
       throw new Error('Failed to create transaction');
     }
@@ -84,7 +102,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return null;
     }
-    const transaction = await this.client.query(api.getTransaction, { id: id as any });
+    const getTransactionFn = getApiFunction('legacy.getTransaction');
+    if (!getTransactionFn) return null;
+    const transaction = await this.client.query(getTransactionFn, { id: id as any });
     return transaction ? this.schemaToTransaction(transaction as TransactionSchema) : null;
   }
 
@@ -92,7 +112,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       throw new Error('Convex not configured');
     }
-    await this.client.mutation(api.updateTransaction, {
+    const updateTransactionFn = getApiFunction('legacy.updateTransaction');
+    if (!updateTransactionFn) throw new Error('Convex API not available');
+    await this.client.mutation(updateTransactionFn, {
       id: id as any,
       updates: {
         status: updates.status,
@@ -112,7 +134,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return [];
     }
-    const transactions = await this.client.query(api.getTransactionsByBuyer, { email });
+    const getTransactionsByBuyerFn = getApiFunction('legacy.getTransactionsByBuyer');
+    if (!getTransactionsByBuyerFn) return [];
+    const transactions = await this.client.query(getTransactionsByBuyerFn, { email });
     return transactions.map((t: any) => this.schemaToTransaction(t as TransactionSchema));
   }
 
@@ -134,7 +158,9 @@ export class DatabaseClient {
       return this.schemaToProduct(product);
     }
 
-    const productId = await this.client.mutation(api.createProduct, {
+    const createProductFn = getApiFunction('legacy.createProduct');
+    if (!createProductFn) throw new Error('Convex API not available');
+    const productId = await this.client.mutation(createProductFn, {
       title: data.title,
       description: data.description,
       cost: data.cost,
@@ -144,7 +170,9 @@ export class DatabaseClient {
       condition: data.condition,
     });
 
-    const product = await this.client.query(api.getProduct, { id: productId });
+    const getProductFn = getApiFunction('legacy.getProduct');
+    if (!getProductFn) throw new Error('Convex API not available');
+    const product = await this.client.query(getProductFn, { id: productId });
     if (!product) {
       throw new Error('Failed to create product');
     }
@@ -155,7 +183,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return null;
     }
-    const product = await this.client.query(api.getProduct, { id: id as any });
+    const getProductFn = getApiFunction('legacy.getProduct');
+    if (!getProductFn) return null;
+    const product = await this.client.query(getProductFn, { id: id as any });
     return product ? this.schemaToProduct(product as ProductSchema) : null;
   }
 
@@ -163,7 +193,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return [];
     }
-    const products = await this.client.query(api.getAllProducts, {});
+    const getAllProductsFn = getApiFunction('legacy.getAllProducts');
+    if (!getAllProductsFn) return [];
+    const products = await this.client.query(getAllProductsFn, {});
     return products.map((p: any) => this.schemaToProduct(p as ProductSchema));
   }
 
@@ -172,7 +204,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return null;
     }
-    const profile = await this.client.query(api.getBuyerProfile, { email });
+    const getBuyerProfileFn = getApiFunction('legacy.getBuyerProfile');
+    if (!getBuyerProfileFn) return null;
+    const profile = await this.client.query(getBuyerProfileFn, { email });
     return profile ? this.schemaToBuyerProfile(profile as BuyerProfileSchema) : null;
   }
 
@@ -180,7 +214,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return;
     }
-    await this.client.mutation(api.updateBuyerProfile, { email, updates });
+    const updateBuyerProfileFn = getApiFunction('legacy.updateBuyerProfile');
+    if (!updateBuyerProfileFn) return;
+    await this.client.mutation(updateBuyerProfileFn, { email, updates });
   }
 
   private schemaToBuyerProfile(schema: BuyerProfileSchema): BuyerProfile {
@@ -223,7 +259,9 @@ export class DatabaseClient {
       return this.schemaToNegotiation(negotiation);
     }
 
-    const negotiationId = await this.client.mutation(api.createNegotiationState, {
+    const createNegotiationStateFn = getApiFunction('legacy.createNegotiationState');
+    if (!createNegotiationStateFn) throw new Error('Convex API not available');
+    const negotiationId = await this.client.mutation(createNegotiationStateFn, {
       buyerEmail: data.buyerEmail,
       product: data.product,
       threadId: data.threadId,
@@ -241,7 +279,9 @@ export class DatabaseClient {
       agreedPrice: data.agreedPrice,
     });
 
-    const negotiation = await this.client.query(api.getNegotiationState, { threadId: data.threadId });
+    const getNegotiationStateFn = getApiFunction('legacy.getNegotiationState');
+    if (!getNegotiationStateFn) throw new Error('Convex API not available');
+    const negotiation = await this.client.query(getNegotiationStateFn, { threadId: data.threadId });
     if (!negotiation) {
       throw new Error('Failed to create negotiation state');
     }
@@ -252,7 +292,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return null;
     }
-    const negotiation = await this.client.query(api.getNegotiationState, { threadId });
+    const getNegotiationStateFn = getApiFunction('legacy.getNegotiationState');
+    if (!getNegotiationStateFn) return null;
+    const negotiation = await this.client.query(getNegotiationStateFn, { threadId });
     return negotiation ? this.schemaToNegotiation(negotiation as NegotiationStateSchema) : null;
   }
 
@@ -260,7 +302,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return;
     }
-    await this.client.mutation(api.updateNegotiationState, {
+    const updateNegotiationStateFn = getApiFunction('legacy.updateNegotiationState');
+    if (!updateNegotiationStateFn) return;
+    await this.client.mutation(updateNegotiationStateFn, {
       threadId,
       updates: {
         currentPrice: updates.currentPrice,
@@ -293,7 +337,22 @@ export class DatabaseClient {
       };
     }
 
-    const metrics = await this.client.query(api.getMetrics, {});
+    const getMetricsFn = getApiFunction('legacy.getMetrics');
+    if (!getMetricsFn) {
+      // Return default metrics if API not available
+      return {
+        dealsCompleted: 0,
+        totalProfit: 0,
+        totalRevenue: 0,
+        conversionRate: 0,
+        averageResponseTime: 0,
+        averageNegotiationRounds: 0,
+        activeListings: 0,
+        emailsProcessed: 0,
+        lastUpdated: new Date(),
+      };
+    }
+    const metrics = await this.client.query(getMetricsFn, {});
     if (!metrics) {
       return {
         dealsCompleted: 0,
@@ -325,7 +384,9 @@ export class DatabaseClient {
     if (!this.convexUrl) {
       return;
     }
-    await this.client.mutation(api.updateMetrics, {
+    const updateMetricsFn = getApiFunction('legacy.updateMetrics');
+    if (!updateMetricsFn) return;
+    await this.client.mutation(updateMetricsFn, {
       dealsCompleted: updates.dealsCompleted,
       totalProfit: updates.totalProfit,
       totalRevenue: updates.totalRevenue,

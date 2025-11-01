@@ -135,28 +135,40 @@ export const getOpportunities = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let queryBuilder = ctx.db.query("opportunities");
+    let results: any[] = [];
 
     // Use status index if status is provided
     if (args.status) {
-      queryBuilder = queryBuilder.withIndex("by_status", (q) => q.eq("status", args.status));
+      const statusQuery = ctx.db
+        .query("opportunities")
+        .withIndex("by_status", (q) => q.eq("status", args.status!));
+      
+      for (const opportunity of await statusQuery.collect()) {
+        // Apply filters
+        if (args.category && opportunity.category !== args.category) continue;
+        if (args.platform && opportunity.platform !== args.platform) continue;
+        if (args.minPrice && opportunity.listingPrice < args.minPrice) continue;
+        if (args.maxPrice && opportunity.listingPrice > args.maxPrice) continue;
+        
+        results.push(opportunity);
+        
+        if (args.limit && results.length >= args.limit) break;
+      }
     } else {
-      // Otherwise use discovered index
-      queryBuilder = queryBuilder.withIndex("by_discovered", (q) => q);
-    }
-
-    const results: any[] = [];
-    
-    for (const opportunity of await queryBuilder.collect()) {
-      // Apply filters
-      if (args.category && opportunity.category !== args.category) continue;
-      if (args.platform && opportunity.platform !== args.platform) continue;
-      if (args.minPrice && opportunity.listingPrice < args.minPrice) continue;
-      if (args.maxPrice && opportunity.listingPrice > args.maxPrice) continue;
+      // Otherwise query all opportunities (no index needed for full table scan)
+      const allQuery = ctx.db.query("opportunities");
       
-      results.push(opportunity);
-      
-      if (args.limit && results.length >= args.limit) break;
+      for (const opportunity of await allQuery.collect()) {
+        // Apply filters
+        if (args.category && opportunity.category !== args.category) continue;
+        if (args.platform && opportunity.platform !== args.platform) continue;
+        if (args.minPrice && opportunity.listingPrice < args.minPrice) continue;
+        if (args.maxPrice && opportunity.listingPrice > args.maxPrice) continue;
+        
+        results.push(opportunity);
+        
+        if (args.limit && results.length >= args.limit) break;
+      }
     }
 
     // Sort by profitScore descending
