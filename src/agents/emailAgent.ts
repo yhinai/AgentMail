@@ -24,23 +24,64 @@ class AgentMailSDK implements AgentMailClient {
   private baseUrl: string;
   private possibleEndpoints: string[];
   private workingEndpoint: string | null = null;
+  private inboxId: string | null = null;
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
     // Try multiple possible endpoints (agentmail.to is the official domain)
     this.possibleEndpoints = [
       process.env.AGENTMAIL_API_URL,
-      'https://api.agentmail.to/v1',
       'https://api.agentmail.to/v0',
+      'https://api.agentmail.to/v1',
       'https://api.agentmail.com/v1',
       'https://api.agentmail.io/v1',
       'https://agentmail.com/api/v1',
       'https://app.agentmail.com/api/v1',
     ].filter(Boolean) as string[];
-    
+
     this.baseUrl = this.possibleEndpoints[0];
     console.log(`[AgentMail] Initialized with primary endpoint: ${this.baseUrl}`);
     console.log(`[AgentMail] Will try ${this.possibleEndpoints.length} possible endpoints if needed`);
+
+    // Initialize inbox asynchronously
+    this.initializeInbox().catch(err => {
+      console.warn(`[AgentMail] Failed to initialize inbox: ${err.message}`);
+    });
+  }
+
+  private async initializeInbox(): Promise<void> {
+    try {
+      // Get or create default inbox
+      const response = await this.tryEndpoints(async (baseUrl) => {
+        return await axios.get(`${baseUrl}/inboxes`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      });
+
+      if (response.data.count > 0) {
+        this.inboxId = response.data.inboxes[0].inbox_id;
+        console.log(`[AgentMail] ✅ Using existing inbox: ${this.inboxId}`);
+      } else {
+        // Create new inbox
+        const createResponse = await axios.post(
+          `${this.workingEndpoint}/inboxes`,
+          { name: 'AgentMail Auto-Created Inbox' },
+          {
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        this.inboxId = createResponse.data.inbox_id;
+        console.log(`[AgentMail] ✅ Created new inbox: ${this.inboxId}`);
+      }
+    } catch (error: any) {
+      console.warn(`[AgentMail] Could not initialize inbox: ${error.message}`);
+    }
   }
 
   private async tryEndpoints<T>(
@@ -71,8 +112,10 @@ class AgentMailSDK implements AgentMailClient {
         return result;
       } catch (error: any) {
         lastError = error;
-        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-          console.warn(`[AgentMail] Endpoint ${endpoint} not reachable, trying next...`);
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+            error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' ||
+            error.message?.includes('ECONNRESET')) {
+          console.warn(`[AgentMail] Endpoint ${endpoint} not reachable (${error.code}), trying next...`);
           continue;
         }
         // If it's not a network error, throw it
@@ -86,8 +129,13 @@ class AgentMailSDK implements AgentMailClient {
 
   async getUnread(): Promise<EmailMessage[]> {
     try {
+      if (!this.inboxId) {
+        console.warn('[AgentMail] No inbox configured yet, using fallback mode');
+        return [];
+      }
+
       const response = await this.tryEndpoints(async (baseUrl) => {
-        return await axios.get(`${baseUrl}/messages/unread`, {
+        return await axios.get(`${baseUrl}/inboxes/${encodeURIComponent(this.inboxId!)}/messages`, {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
@@ -96,22 +144,22 @@ class AgentMailSDK implements AgentMailClient {
       });
 
       return response.data.messages.map((msg: any) => ({
-        id: msg.id,
+        id: msg.message_id || msg.id,
         from: msg.from,
         to: msg.to,
         subject: msg.subject,
         body: msg.body || msg.text || msg.html,
-        threadId: msg.threadId,
-        timestamp: new Date(msg.timestamp || msg.createdAt),
+        threadId: msg.thread_id || msg.threadId,
+        timestamp: new Date(msg.timestamp || msg.created_at || msg.createdAt),
         attachments: msg.attachments?.map((att: any) => ({
           filename: att.filename,
-          contentType: att.contentType,
+          contentType: att.contentType || att.content_type,
           content: Buffer.from(att.content, 'base64'),
         })),
       }));
     } catch (error: any) {
       // Handle network errors, DNS failures, and API errors gracefully
-      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' ||
           error.response?.status === 404 || !this.apiKey) {
         console.warn(`[AgentMail] API endpoint not reachable (${error.code || error.response?.status}), using fallback mode`);
         return [];
@@ -122,14 +170,19 @@ class AgentMailSDK implements AgentMailClient {
 
   async sendEmail(to: string, subject: string, body: string, threadId?: string): Promise<void> {
     try {
+      if (!this.inboxId) {
+        console.warn(`[AgentMail] No inbox configured, email would be sent to ${to}: ${subject}`);
+        return;
+      }
+
       await this.tryEndpoints(async (baseUrl) => {
         return await axios.post(
-          `${baseUrl}/messages/send`,
+          `${baseUrl}/inboxes/${encodeURIComponent(this.inboxId!)}/messages/send`,
           {
             to,
             subject,
             body,
-            threadId,
+            thread_id: threadId,
           },
           {
             headers: {
@@ -139,10 +192,10 @@ class AgentMailSDK implements AgentMailClient {
           }
         );
       });
-      console.log(`[AgentMail] Email sent to ${to}: ${subject}`);
+      console.log(`[AgentMail] ✅ Email sent to ${to}: ${subject}`);
     } catch (error: any) {
       // Handle network errors, DNS failures, and API errors gracefully
-      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' ||
           error.response?.status === 404 || !this.apiKey) {
         console.warn(`[AgentMail] API endpoint not reachable, email would be sent to ${to}: ${subject}`);
         return;
@@ -153,30 +206,38 @@ class AgentMailSDK implements AgentMailClient {
 
   async getThread(threadId: string): Promise<EmailMessage[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/threads/${threadId}`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      if (!this.inboxId) {
+        console.warn('[AgentMail] No inbox configured, returning empty thread');
+        return [];
+      }
+
+      const response = await axios.get(
+        `${this.workingEndpoint}/inboxes/${encodeURIComponent(this.inboxId)}/threads/${threadId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       return response.data.messages.map((msg: any) => ({
-        id: msg.id,
+        id: msg.message_id || msg.id,
         from: msg.from,
         to: msg.to,
         subject: msg.subject,
         body: msg.body || msg.text || msg.html,
-        threadId: msg.threadId,
-        timestamp: new Date(msg.timestamp || msg.createdAt),
+        threadId: msg.thread_id || msg.threadId,
+        timestamp: new Date(msg.timestamp || msg.created_at || msg.createdAt),
         attachments: msg.attachments?.map((att: any) => ({
           filename: att.filename,
-          contentType: att.contentType,
+          contentType: att.contentType || att.content_type,
           content: Buffer.from(att.content, 'base64'),
         })),
       }));
     } catch (error: any) {
       // Handle network errors, DNS failures, and API errors gracefully
-      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' ||
           error.response?.status === 404 || !this.apiKey) {
         console.warn('[AgentMail] API endpoint not reachable, returning empty thread');
         return [];
@@ -187,9 +248,14 @@ class AgentMailSDK implements AgentMailClient {
 
   async markAsRead(messageId: string): Promise<void> {
     try {
-      await axios.post(
-        `${this.baseUrl}/messages/${messageId}/read`,
-        {},
+      if (!this.inboxId) {
+        console.warn('[AgentMail] No inbox configured, mark as read skipped');
+        return;
+      }
+
+      await axios.patch(
+        `${this.workingEndpoint}/inboxes/${encodeURIComponent(this.inboxId)}/messages/${messageId}`,
+        { read: true },
         {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -199,7 +265,7 @@ class AgentMailSDK implements AgentMailClient {
       );
     } catch (error: any) {
       // Handle network errors, DNS failures, and API errors gracefully
-      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || 
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' ||
           error.response?.status === 404 || !this.apiKey) {
         console.warn('[AgentMail] API endpoint not reachable, mark as read skipped');
         return;
