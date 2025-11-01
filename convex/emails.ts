@@ -135,9 +135,10 @@ export const logActivity = mutation({
       v.literal('error')
     ),
     from: v.string(),
-    to: v.string(),
+    to: v.optional(v.string()),
     subject: v.string(),
     summary: v.string(),
+    timestamp: v.number(),
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
@@ -145,10 +146,10 @@ export const logActivity = mutation({
       emailId: args.emailId,
       type: args.type,
       from: args.from,
-      to: args.to,
+      to: args.to || '',
       subject: args.subject,
       summary: args.summary,
-      timestamp: Date.now(),
+      timestamp: args.timestamp,
       metadata: args.metadata,
     });
   },
