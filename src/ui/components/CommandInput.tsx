@@ -105,37 +105,6 @@ export default function CommandInput({ onCommandSubmit }: CommandInputProps) {
           )}
         </div>
 
-        {preview && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-blue-900 mb-2">Preview:</p>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {preview.budget && (
-                <div>
-                  <span className="text-blue-700 font-medium">Budget:</span>{' '}
-                  <span className="text-blue-900">${preview.budget}</span>
-                </div>
-              )}
-              {preview.quantity && (
-                <div>
-                  <span className="text-blue-700 font-medium">Quantity:</span>{' '}
-                  <span className="text-blue-900">{preview.quantity}</span>
-                </div>
-              )}
-              {preview.category && (
-                <div>
-                  <span className="text-blue-700 font-medium">Category:</span>{' '}
-                  <span className="text-blue-900 capitalize">{preview.category}</span>
-                </div>
-              )}
-              {preview.action && (
-                <div>
-                  <span className="text-blue-700 font-medium">Action:</span>{' '}
-                  <span className="text-blue-900">{preview.action.replace('_', ' ')}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -143,13 +112,6 @@ export default function CommandInput({ onCommandSubmit }: CommandInputProps) {
           </div>
         )}
 
-        {commandId && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <p className="text-sm text-green-800">
-              Command submitted! ID: <code className="font-mono text-xs">{commandId}</code>
-            </p>
-          </div>
-        )}
 
         <button
           type="submit"

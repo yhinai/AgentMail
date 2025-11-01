@@ -131,13 +131,6 @@ export default function CommandHistory() {
                 </div>
               )}
 
-              {cmd.expectedProfit !== undefined && cmd.status === 'completed' && (
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-green-600">
-                    Expected Profit: ${cmd.expectedProfit.toFixed(2)}
-                  </p>
-                </div>
-              )}
 
               {cmd.error && (
                 <div className="mt-2 bg-red-50 border border-red-200 rounded p-2">
