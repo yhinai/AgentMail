@@ -28,14 +28,14 @@ export class BrowserUseIntegration {
   private apiKey: string;
   private baseUrl: string;
   
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
-    this.baseUrl = config.browserUse.apiUrl;
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey || '';
+    // Use local Python bridge instead of remote API
+    this.baseUrl = process.env.BROWSER_BRIDGE_URL || 'http://localhost:8001';
     
     this.client = axios.create({
       baseURL: this.baseUrl,
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json'
       },
       timeout: 60000
@@ -52,7 +52,7 @@ export class BrowserUseIntegration {
       });
       
       const sessionId = response.data.sessionId;
-      return new BrowserUseSession(sessionId, this.apiKey, this.baseUrl);
+      return new BrowserUseSession(sessionId, this.baseUrl);
     } catch (error: any) {
       throw new Error(`Failed to create browser session: ${error.message}`);
     }
@@ -69,24 +69,33 @@ export class BrowserUseIntegration {
       };
     }
   }
+
+  async runAgent(task: string, maxSteps: number = 100): Promise<any> {
+    try {
+      const response = await this.client.post('/agent/run', {
+        task,
+        max_steps: maxSteps
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(`Failed to run agent: ${error.message}`);
+    }
+  }
 }
 
 class BrowserUseSession implements BrowserSession {
-  private sessionId: string;
-  private apiKey: string;
+  public sessionId: string;
   private baseUrl: string;
   private client: AxiosInstance;
   private currentUrl: string = '';
   
-  constructor(sessionId: string, apiKey: string, baseUrl: string) {
+  constructor(sessionId: string, baseUrl: string) {
     this.sessionId = sessionId;
-    this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     
     this.client = axios.create({
       baseURL: baseUrl,
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       timeout: 60000

@@ -145,9 +145,26 @@ export default function ScrapedListings() {
                   <h3 className="text-sm font-medium text-gray-900 line-clamp-2 flex-1">
                     {listing.title}
                   </h3>
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                    {listing.platform}
-                  </span>
+                  <div className="ml-2 flex gap-1">
+                    {(listing as any).source === 'browser-use-real' && (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded font-semibold">
+                        REAL
+                      </span>
+                    )}
+                    {(listing as any).source === 'ebay-screenshot-scraper' && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded font-semibold">
+                        📸 SCREENSHOT
+                      </span>
+                    )}
+                    {(listing as any).source === 'web-domain-scraper' && (
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded font-semibold">
+                        🌐 WEB
+                      </span>
+                    )}
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                      {listing.platform}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-2">

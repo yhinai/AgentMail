@@ -26,10 +26,11 @@ export default function Dashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [activities, setActivities] = useState<Array<{
     id: string;
-    type: string;
+    type: 'info' | 'success' | 'warning' | 'error';
     message: string;
     timestamp: Date;
   }>>([]);
+  const [lastCommandId, setLastCommandId] = useState<string | null>(null);
 
   useEffect(() => {
     // Poll for metrics updates
@@ -47,6 +48,52 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Poll for command status and generate activities
+  useEffect(() => {
+    if (!lastCommandId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/command/status/${lastCommandId}`);
+        if (response.ok) {
+          const command = await response.json();
+          
+          // Generate activity based on status
+          if (command.message && command.status !== 'completed') {
+            setActivities(prev => {
+              const exists = prev.some(a => a.message === command.message);
+              if (!exists) {
+                return [{
+                  id: `activity_${Date.now()}`,
+                  type: 'info' as const,
+                  message: command.message,
+                  timestamp: new Date()
+                }, ...prev].slice(0, 20); // Keep last 20 activities
+              }
+              return prev;
+            });
+          }
+
+          // Add completion activity
+          if (command.status === 'completed' && command.expectedProfit) {
+            setActivities(prev => [{
+              id: `activity_${Date.now()}`,
+              type: 'success' as const,
+              message: `Task completed! Expected profit: $${command.expectedProfit.toFixed(2)}`,
+              timestamp: new Date()
+            }, ...prev].slice(0, 20));
+
+            setLastCommandId(null); // Stop polling
+          }
+        }
+      } catch (error) {
+        console.error('Error polling command status:', error);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [lastCommandId]);
 
   const handleStartDemo = async () => {
     setIsRunning(true);
@@ -98,21 +145,24 @@ export default function Dashboard() {
 
       const data = await response.json();
       
-      setActivities(prev => [...prev, {
+      setActivities(prev => [{
         id: Date.now().toString(),
-        type: 'success',
+        type: 'success' as const,
         message: `Command submitted: "${command}"`,
         timestamp: new Date(),
-      }]);
+      }, ...prev]);
+
+      // Start tracking this command
+      setLastCommandId(data.commandId);
 
       return data.commandId;
     } catch (error: any) {
-      setActivities(prev => [...prev, {
+      setActivities(prev => [{
         id: Date.now().toString(),
-        type: 'error',
+        type: 'error' as const,
         message: `Command failed: ${error.message}`,
         timestamp: new Date(),
-      }]);
+      }, ...prev]);
       throw error;
     }
   };

@@ -9,10 +9,12 @@ interface CommandExecution {
     category: string;
     action: string;
   };
-  status: 'pending' | 'finding' | 'analyzing' | 'negotiating' | 'listing' | 'completed' | 'failed';
+  status: 'pending' | 'analyzing' | 'searching' | 'evaluating' | 'selecting' | 'purchasing' | 'listing' | 'finding' | 'negotiating' | 'completed' | 'failed';
   progress?: number;
   error?: string;
   expectedProfit?: number;
+  message?: string;
+  timestamp?: string;
 }
 
 export default function CommandHistory() {
@@ -22,12 +24,27 @@ export default function CommandHistory() {
   useEffect(() => {
     const fetchCommands = async () => {
       try {
-        // TODO: Replace with actual API call to get command history
-        // For now, this would come from Convex or API
         const response = await fetch('/api/commands/history');
         if (response.ok) {
           const data = await response.json();
-          setCommands(data.commands || []);
+          const newCommands = data.commands || [];
+          
+          // Merge with existing commands, updating any that changed
+          setCommands(prevCommands => {
+            const merged = [...newCommands];
+            
+            // Add any commands from previous state that aren't in new data
+            prevCommands.forEach(prevCmd => {
+              if (!merged.find(cmd => cmd.commandId === prevCmd.commandId)) {
+                merged.push(prevCmd);
+              }
+            });
+            
+            // Sort by timestamp, newest first
+            return merged.sort((a, b) => 
+              new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+            );
+          });
         }
       } catch (error) {
         console.error('Error fetching command history:', error);
@@ -38,8 +55,8 @@ export default function CommandHistory() {
 
     fetchCommands();
     
-    // Poll for updates every 5 seconds
-    const interval = setInterval(fetchCommands, 5000);
+    // Poll for updates every 1 second for real-time updates
+    const interval = setInterval(fetchCommands, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -95,6 +112,12 @@ export default function CommandHistory() {
                   {cmd.status}
                 </span>
               </div>
+
+              {cmd.message && cmd.status !== 'completed' && (
+                <div className="mt-2">
+                  <p className="text-sm text-blue-600 font-medium">{cmd.message}</p>
+                </div>
+              )}
 
               {cmd.progress !== undefined && cmd.progress < 100 && (
                 <div className="mt-2">
