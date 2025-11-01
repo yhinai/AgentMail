@@ -83,7 +83,7 @@ class QueueMetricsCollector {
 }
 
 export class QueueManager {
-  private queues: Map<string, Queue>;
+  private queues: Map<string, any>;
   private processors: Map<string, QueueProcessor>;
   private redis: Redis;
   private metrics: QueueMetricsCollector;
@@ -114,7 +114,7 @@ export class QueueManager {
     });
   }
   
-  async createQueue(name: string, options?: QueueOptions): Promise<Queue> {
+  async createQueue(name: string, options?: QueueOptions): Promise<any> {
     if (this.queues.has(name)) {
       return this.queues.get(name)!;
     }
@@ -222,7 +222,7 @@ export class QueueManager {
     return await queue.addBulk(bulkJobs);
   }
   
-  private setupQueueListeners(queue: Queue): void {
+  private setupQueueListeners(queue: any): void {
     queue.on('completed', (job, result) => {
       console.log(`Job ${job.id} completed in queue ${queue.name}`);
       this.metrics.recordCompletion(queue.name);

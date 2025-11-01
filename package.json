@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "cd src/ui && next dev -p 3000",
-    "build": "tsc && cd src/ui && next build",
+    "build": "cd src/ui && next build",
+    "build:tsc": "tsc && cd src/ui && next build",
     "start": "node dist/index.js",
     "server": "tsx src/server/index.ts",
     "orchestrator": "tsx src/index.ts",

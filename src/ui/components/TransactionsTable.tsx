@@ -56,10 +56,10 @@ export default function TransactionsTable({ transactions }: TransactionsTablePro
                     {transaction.buyerEmail}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    ${transaction.finalPrice.toFixed(2)}
+                    ${(transaction.finalPrice || 0).toFixed(2)}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-green-600">
-                    ${transaction.profit.toFixed(2)}
+                    ${(transaction.profit || 0).toFixed(2)}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span

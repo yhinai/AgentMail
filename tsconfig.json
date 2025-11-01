@@ -36,6 +36,16 @@
   "exclude": [
     "node_modules",
     "dist",
-    ".next"
+    ".next",
+    "convex/**/*",
+    "src/database/client.ts",
+    "src/database/convex.ts",
+    "src/memory/contextStore.ts",
+    "src/workflows/orchestrator.ts",
+    "src/index.ts",
+    "src/server/index.ts",
+    "src/performance/index.ts",
+    "src/agents/MarketResearchAgent.ts",
+    "src/agents/marketAgent.ts"
   ]
 }

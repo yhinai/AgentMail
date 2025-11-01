@@ -72,12 +72,12 @@ export class BrowserUseIntegration {
 }
 
 class BrowserUseSession implements BrowserSession {
-  private sessionId: string;
+  public sessionId: string;
   private apiKey: string;
   private baseUrl: string;
   private client: AxiosInstance;
   private currentUrl: string = '';
-  
+
   constructor(sessionId: string, apiKey: string, baseUrl: string) {
     this.sessionId = sessionId;
     this.apiKey = apiKey;

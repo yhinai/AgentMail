@@ -44,8 +44,7 @@ export class ResponseAnalyzer {
         messageExcerpt: email.body.substring(0, 200),
         product: undefined,
         price: analysis.price,
-        urgency: analysis.urgency === 'high' ? 'high' : analysis.urgency === 'low' ? 'low' : 'medium',
-        confidence: analysis.confidence || 0.7
+        urgency: analysis.urgency === 'high' ? 'high' : analysis.urgency === 'low' ? 'low' : 'medium'
       };
     } catch (error) {
       // Fallback to basic analysis
@@ -89,8 +88,7 @@ export class ResponseAnalyzer {
       negotiationStyle: 'unknown',
       confidence: 0.6,
       messageExcerpt: email.body.substring(0, 200),
-      urgency: 'medium',
-      confidence: 0.6
+      urgency: 'medium'
     };
   }
   

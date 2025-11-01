@@ -11,24 +11,26 @@ interface EmailTemplate {
 }
 
 interface FormattedEmail {
+  subject: string;
   html: string;
   text: string;
 }
 
 export class EmailTemplateEngine {
   private templates: Map<string, EmailTemplate>;
-  
+
   constructor(private openai: OpenAIIntegration) {
     this.templates = this.loadTemplates();
   }
-  
+
   async format(content: any, templateName: string): Promise<FormattedEmail> {
     const template = this.templates.get(templateName) || this.templates.get('default')!;
-    
+
     const html = this.renderHTML(content, template);
     const text = this.renderText(content, template);
-    
-    return { html, text };
+    const subject = content.subject || `${templateName} - Message`;
+
+    return { subject, html, text };
   }
   
   private renderHTML(content: any, template: EmailTemplate): string {

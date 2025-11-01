@@ -100,6 +100,12 @@ export interface MarketData {
   demandScore: number;
   competitorCount: number;
   insights: string[];
+
+  // Additional fields used in agent code
+  average?: number; // Alias for averagePrice
+  median?: number; // Median price
+  optimal?: number; // Optimal selling price
+  productName?: string; // Product name for the market data
 }
 
 export interface ProfitAnalysis {
@@ -136,6 +142,9 @@ export interface DealAnalysis {
   };
   profitMargin: number;
   sellerProfile?: SellerProfile;
+
+  // Alias for opportunity.profitAnalysis (for backward compatibility)
+  profitAnalysis?: ProfitAnalysis;
 }
 
 export interface SellerProfile {
@@ -344,11 +353,22 @@ export interface Transaction {
   paymentStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
   platform: string;
   platformTransactionId?: string;
-  status: string;
+  status: string | 'completed' | 'refunded' | 'negotiating' | 'cancelled';
   createdAt: number;
   completedAt?: number;
   taxAmount?: number;
   notes?: string;
+
+  // Legacy fields for backward compatibility with demo code
+  buyerEmail?: string;
+  product?: string;
+  productId?: string;
+  initialPrice?: number;
+  finalPrice?: number;
+  cost?: number;
+  profit?: number;
+  negotiationRounds?: number;
+  listingUrls?: string[];
 }
 
 // ============================================
