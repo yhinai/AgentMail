@@ -1,0 +1,52 @@
+{
+  "name": "profitpilot",
+  "version": "1.0.0",
+  "description": "Autonomous AI agent for e-commerce selling",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "cd src/ui && next dev -p 3000",
+    "build": "tsc && cd src/ui && next build",
+    "start": "node dist/index.js",
+    "demo": "tsx src/demo/runner.ts",
+    "orchestrator": "tsx src/index.ts",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "e-commerce",
+    "automation"
+  ],
+  "author": "ProfitPilot Team",
+  "license": "MIT",
+  "dependencies": {
+    "@agentmail/sdk": "^0.1.0",
+    "@browser-use/sdk": "^0.1.0",
+    "openai": "^4.20.0",
+    "convex": "^1.9.0",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "ws": "^8.14.2",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.42",
+    "@types/react-dom": "^18.2.17",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
