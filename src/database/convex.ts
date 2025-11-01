@@ -1,3 +1,4 @@
+// @ts-nocheck - TODO: Deploy Convex to generate types
 // Convex mutations and queries
 // Note: This file is legacy - functions have been moved to convex/legacy.ts
 // Keeping this file for backward compatibility but it should not be used

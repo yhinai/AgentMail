@@ -1,4 +1,9 @@
 {
+  "node": {
+    "externalPackages": [
+      "openai"
+    ]
+  },
   "projects": {
     "dev": {
       "url": "https://pastel-porcupine-488.convex.cloud"

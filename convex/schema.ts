@@ -1,4 +1,4 @@
-// Complete AutoBazaaar Convex schema
+// Complete AutoBazaaar + AgentMail Convex schema
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
@@ -310,60 +310,6 @@ export default defineSchema({
     .index("by_date", ["createdAt"])
     .index("by_inventory", ["inventoryId"]),
   
-  // Performance metrics and analytics
-  metrics: defineTable({
-    // Time period
-    period: v.string(), // 'hour', 'day', 'week', 'month'
-    timestamp: v.number(),
-    date: v.string(), // YYYY-MM-DD
-    
-    // Discovery metrics
-    discovery: v.object({
-      opportunitiesFound: v.number(),
-      opportunitiesAnalyzed: v.number(),
-      opportunitiesApproved: v.number(),
-      avgProfitScore: v.number()
-    }),
-    
-    // Negotiation metrics
-    negotiation: v.object({
-      started: v.number(),
-      completed: v.number(),
-      successful: v.number(),
-      avgRounds: v.number(),
-      avgResponseTime: v.number(),
-      avgDiscount: v.number()
-    }),
-    
-    // Sales metrics
-    sales: v.object({
-      listed: v.number(),
-      sold: v.number(),
-      avgTimeToSell: v.number(),
-      avgSalePrice: v.number()
-    }),
-    
-    // Financial metrics
-    financial: v.object({
-      totalSpent: v.number(),
-      totalRevenue: v.number(),
-      totalProfit: v.number(),
-      totalFees: v.number(),
-      roi: v.number(),
-      profitMargin: v.number()
-    }),
-    
-    // Efficiency metrics
-    efficiency: v.object({
-      automationRate: v.number(),
-      errorRate: v.number(),
-      avgProcessingTime: v.number()
-    })
-  })
-    .index("by_period", ["period"])
-    .index("by_date", ["date"])
-    .index("by_timestamp", ["timestamp"]),
-  
   // System configuration
   config: defineTable({
     key: v.string(),
@@ -496,5 +442,64 @@ export default defineSchema({
     ),
     listingUrls: v.array(v.string()),
     agreedPrice: v.optional(v.number()),
-  }).index('by_thread', ['threadId'])
+  }).index('by_thread', ['threadId']),
+  
+  // Metrics table (combined from both branches)
+  metrics: defineTable({
+    // Simple metrics (from AgentMail branch)
+    dealsCompleted: v.number(),
+    totalProfit: v.number(),
+    totalRevenue: v.number(),
+    conversionRate: v.number(),
+    averageResponseTime: v.number(),
+    averageNegotiationRounds: v.number(),
+    activeListings: v.number(),
+    emailsProcessed: v.number(),
+    lastUpdated: v.number(),
+  }),
+
+  // Email queue for AgentMail webhook-based email processing
+  emailQueue: defineTable({
+    messageId: v.string(),
+    threadId: v.optional(v.string()),
+    from: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    body: v.string(),
+    receivedAt: v.number(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('processing'),
+      v.literal('completed'),
+      v.literal('failed')
+    ),
+    priority: v.union(v.literal('low'), v.literal('medium'), v.literal('high')),
+    retryCount: v.number(),
+    processedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+    metadata: v.optional(v.object({
+      intent: v.optional(v.string()),
+      sentiment: v.optional(v.string()),
+      urgency: v.optional(v.string()),
+    })),
+  }).index('by_status', ['status'])
+    .index('by_message_id', ['messageId'])
+    .index('by_thread_id', ['threadId']),
+
+  // Email activity log for AgentMail UI display
+  emailActivity: defineTable({
+    emailId: v.string(),
+    type: v.union(
+      v.literal('received'),
+      v.literal('sent'),
+      v.literal('analyzed'),
+      v.literal('error')
+    ),
+    from: v.string(),
+    to: v.string(),
+    subject: v.string(),
+    summary: v.string(),
+    timestamp: v.number(),
+    metadata: v.optional(v.any()),
+  }).index('by_timestamp', ['timestamp']),
 });

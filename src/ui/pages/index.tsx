@@ -4,6 +4,7 @@ import MetricsCards from '../components/MetricsCards';
 import ActivityFeed from '../components/ActivityFeed';
 import ControlPanel from '../components/ControlPanel';
 import TransactionsTable from '../components/TransactionsTable';
+import EmailActivityPanel from '../components/EmailActivityPanel';
 import CommandInput from '../components/CommandInput';
 import CommandHistory from '../components/CommandHistory';
 import ScrapedListings from '../components/ScrapedListings';
@@ -21,7 +22,7 @@ export default function Dashboard() {
     emailsProcessed: 0,
     lastUpdated: new Date(),
   });
-  
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [activities, setActivities] = useState<Array<{
@@ -97,7 +98,7 @@ export default function Dashboard() {
       }
 
       const data = await response.json();
-      
+
       setActivities(prev => [...prev, {
         id: Date.now().toString(),
         type: 'success',
@@ -120,8 +121,8 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>ProfitPilot Dashboard</title>
-        <meta name="description" content="Autonomous AI agent for e-commerce" />
+        <title>AutoBazaaar + AgentMail Dashboard</title>
+        <meta name="description" content="Autonomous Commerce Agent with Email Automation" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -132,8 +133,8 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">ProfitPilot</h1>
-                <p className="text-sm text-gray-500">Autonomous E-Commerce Agent</p>
+                <h1 className="text-2xl font-bold text-gray-900">AutoBazaaar</h1>
+                <p className="text-sm text-gray-500">Autonomous Commerce + Email Automation</p>
               </div>
               <div className="flex items-center space-x-4">
                 <div className={`w-3 h-3 rounded-full ${isRunning ? 'bg-green-500' : 'bg-gray-400'}`} />
@@ -163,6 +164,11 @@ export default function Dashboard() {
               onStartDemo={handleStartDemo}
               onStop={handleStop}
             />
+          </div>
+
+          {/* Email Activity Panel (Full Width) */}
+          <div className="mt-8">
+            <EmailActivityPanel />
           </div>
 
           {/* Scraped Listings */}
