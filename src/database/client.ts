@@ -556,6 +556,47 @@ export class DatabaseClient {
   }
 
   /**
+   * Update email status
+   */
+  async updateEmailStatus(params: {
+    emailId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    error?: string;
+    metadata?: any;
+  }): Promise<void> {
+    if (!this.client) {
+      throw new Error('Convex client not initialized');
+    }
+
+    const updateStatusFn = getApiFunction('emails.updateEmailStatus');
+    if (!updateStatusFn) {
+      throw new Error('Email functions not available');
+    }
+
+    await this.client.mutation(updateStatusFn, {
+      emailId: params.emailId as any,
+      status: params.status,
+      error: params.error,
+      metadata: params.metadata,
+    });
+  }
+
+  /**
+   * Log email activity (alias for logEmailActivity)
+   */
+  async logActivity(activity: {
+    emailId: string;
+    type: 'received' | 'sent' | 'analyzed' | 'error';
+    from: string;
+    to?: string;
+    subject: string;
+    summary: string;
+    metadata?: any;
+  }): Promise<string> {
+    return this.logEmailActivity(activity);
+  }
+
+  /**
    * Log email activity
    */
   async logEmailActivity(activity: {
@@ -582,5 +623,22 @@ export class DatabaseClient {
     });
 
     return activityId;
+  }
+
+  /**
+   * Get recent email activity
+   */
+  async getRecentActivity(limit: number = 50): Promise<any[]> {
+    if (!this.client) {
+      return [];
+    }
+
+    const getRecentActivityFn = getApiFunction('emails.getRecentActivity');
+    if (!getRecentActivityFn) {
+      return [];
+    }
+
+    const activities = await this.client.query(getRecentActivityFn, { limit });
+    return activities || [];
   }
 }

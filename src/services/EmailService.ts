@@ -99,6 +99,7 @@ export class EmailService extends EventEmitter {
       to: email.to,
       subject: email.subject,
       body: email.body,
+      receivedAt: email.receivedAt,
       priority: email.priority || 'medium',
     });
 
@@ -176,7 +177,7 @@ export class EmailService extends EventEmitter {
     metadata?: EmailQueueItem['metadata']
   ): Promise<void> {
     // Update in database
-    await this.db.updateEmailStatus(emailId, status, error, metadata);
+    await this.db.updateEmailStatus({ emailId, status, error, metadata });
 
     // Get updated email for event emission
     const item = await this.db.getEmailByMessageId(emailId);
@@ -217,7 +218,7 @@ export class EmailService extends EventEmitter {
       return;
     }
 
-    await this.db.updateEmailStatus(emailId, 'pending');
+    await this.db.updateEmailStatus({ emailId, status: 'pending' });
 
     this.emit('email:retry', item);
 
@@ -360,7 +361,7 @@ export class EmailService extends EventEmitter {
       subject: activity.subject,
       summary: activity.summary,
       metadata: activity.metadata,
-    }).catch(err => console.warn('⚠️  Failed to log activity in DB:', err.message));
+    }).catch((err: any) => console.warn('⚠️  Failed to log activity in DB:', err.message));
 
     this.emit('activity:logged', activityItem);
   }
