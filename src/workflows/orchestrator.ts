@@ -4,7 +4,7 @@ import { BrowserAgent } from '../agents/browserAgent';
 import { MarketAgent } from '../agents/marketAgent';
 import { ContextStore } from '../memory/contextStore';
 import { DatabaseClient } from '../database/client';
-import type { Product, EmailMessage, Transaction, NegotiationState, Metrics } from '../types';
+import type { Product, EmailMessage, Transaction, LegacyTransaction, NegotiationState, Metrics } from '../types';
 
 export class ProfitPilotOrchestrator {
   private emailAgent: EmailAgent;
@@ -108,10 +108,10 @@ export class ProfitPilotOrchestrator {
       
       await this.emailAgent.sendResponsePublic(emailData, response);
 
-      // Create or update transaction record
-      await this.createOrUpdateTransaction({
+      // Create or update transaction record (using legacy format for now)
+      await this.db.createTransaction({
         buyerEmail: emailData.from,
-        product: analysis.product,
+        product: analysis.product || 'Unknown',
         productId: '', // Would be retrieved from product lookup
         initialPrice: strategy.initialPrice,
         finalPrice: strategy.initialPrice,
@@ -140,9 +140,10 @@ export class ProfitPilotOrchestrator {
       // Get market data to optimize pricing
       const marketData = await this.marketAgent.analyzeProduct(product.title);
       
-      // Adjust target price based on market data
-      if (marketData.optimal > product.targetPrice) {
-        product.targetPrice = Math.round(marketData.optimal);
+      // Adjust target price based on market data (use averagePrice as optimal)
+      const optimalPrice = marketData.averagePrice * 0.95; // 5% below average for competitiveness
+      if (optimalPrice > product.targetPrice) {
+        product.targetPrice = Math.round(optimalPrice);
         console.log(`Adjusted price to ${product.targetPrice} based on market analysis`);
       }
 
@@ -251,7 +252,7 @@ export class ProfitPilotOrchestrator {
   /**
    * Close a deal
    */
-  async closeDeal(negotiation: NegotiationState): Promise<Transaction> {
+  async closeDeal(negotiation: NegotiationState): Promise<LegacyTransaction> {
     console.log(`Closing deal: ${negotiation.product} for $${negotiation.agreedPrice}`);
 
     try {
@@ -326,8 +327,9 @@ export class ProfitPilotOrchestrator {
         for (const product of products) {
           const marketData = await this.marketAgent.analyzeProduct(product.title);
           
-          // Update product price if market conditions changed
-          if (marketData.optimal > product.targetPrice * 1.1) {
+          // Update product price if market conditions changed (use averagePrice as optimal)
+          const optimalPrice = marketData.averagePrice * 0.95; // 5% below average for competitiveness
+          if (optimalPrice > product.targetPrice * 1.1) {
             console.log(`Market opportunity: ${product.title} could be priced higher`);
             // Could trigger price update logic here
           }
@@ -365,9 +367,9 @@ export class ProfitPilotOrchestrator {
   }
 
   /**
-   * Create or update transaction
+   * Create or update transaction (using LegacyTransaction format)
    */
-  private async createOrUpdateTransaction(data: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction> {
+  private async createOrUpdateTransaction(data: Omit<LegacyTransaction, 'id' | 'createdAt'>): Promise<LegacyTransaction> {
     // Check if transaction exists (would query by buyer + product)
     // For now, create new transaction
     return await this.db.createTransaction(data);

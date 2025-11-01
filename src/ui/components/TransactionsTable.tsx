@@ -1,12 +1,12 @@
 import React from 'react';
-import type { Transaction } from '../../types';
+import type { Transaction, LegacyTransaction } from '../../types';
 
 interface TransactionsTableProps {
-  transactions: Transaction[];
+  transactions: (Transaction | LegacyTransaction)[];
 }
 
 export default function TransactionsTable({ transactions }: TransactionsTableProps) {
-  const getStatusColor = (status: Transaction['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-800';
@@ -16,6 +16,33 @@ export default function TransactionsTable({ transactions }: TransactionsTablePro
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Helper to check if transaction is LegacyTransaction
+  const isLegacyTransaction = (t: Transaction | LegacyTransaction): t is LegacyTransaction => {
+    return 'buyerEmail' in t && 'product' in t && 'finalPrice' in t && 'profit' in t;
+  };
+
+  // Helper to get display values from either transaction type
+  const getDisplayValues = (transaction: Transaction | LegacyTransaction) => {
+    if (isLegacyTransaction(transaction)) {
+      return {
+        product: transaction.product,
+        buyer: transaction.buyerEmail,
+        price: transaction.finalPrice,
+        profit: transaction.profit,
+        status: transaction.status
+      };
+    } else {
+      // New Transaction format
+      return {
+        product: transaction.counterparty?.name || transaction.platform || 'N/A',
+        buyer: transaction.counterparty?.email || 'N/A',
+        price: transaction.amount,
+        profit: transaction.netAmount,
+        status: transaction.status
+      };
     }
   };
 
@@ -47,31 +74,34 @@ export default function TransactionsTable({ transactions }: TransactionsTablePro
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {transactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {transaction.product}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {transaction.buyerEmail}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    ${transaction.finalPrice.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-green-600">
-                    ${transaction.profit.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                        transaction.status
-                      )}`}
-                    >
-                      {transaction.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {transactions.map((transaction) => {
+                const display = getDisplayValues(transaction);
+                return (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {display.product}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {display.buyer}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      ${display.price.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-green-600">
+                      ${display.profit.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                          display.status
+                        )}`}
+                      >
+                        {display.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

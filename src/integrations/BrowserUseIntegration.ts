@@ -52,7 +52,7 @@ export class BrowserUseIntegration {
       });
       
       const sessionId = response.data.sessionId;
-      return new BrowserUseSession(sessionId, this.apiKey, this.baseUrl);
+      return new BrowserUseSession(sessionId, this.apiKey, this.baseUrl) as unknown as BrowserSession;
     } catch (error: any) {
       throw new Error(`Failed to create browser session: ${error.message}`);
     }
@@ -72,7 +72,7 @@ export class BrowserUseIntegration {
 }
 
 class BrowserUseSession implements BrowserSession {
-  private sessionId: string;
+  public sessionId: string;
   private apiKey: string;
   private baseUrl: string;
   private client: AxiosInstance;

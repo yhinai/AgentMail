@@ -26,7 +26,7 @@ export default function Dashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [activities, setActivities] = useState<Array<{
     id: string;
-    type: string;
+    type: 'info' | 'success' | 'warning' | 'error';
     message: string;
     timestamp: Date;
   }>>([]);

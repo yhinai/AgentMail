@@ -53,47 +53,45 @@ export class IntegrationManager {
   
   private initializeIntegrations(integrationConfig?: IntegrationConfig): void {
     // Initialize AgentMail
-    if (integrationConfig?.agentMail?.apiKey || config.agentMail.apiKey) {
+    const agentMailKey = integrationConfig?.agentMail?.apiKey || config.agentMail.apiKey;
+    if (agentMailKey) {
       this.agentMail = new AgentMailIntegration({
-        apiKey: integrationConfig?.agentMail?.apiKey || config.agentMail.apiKey,
-        webhookUrl: integrationConfig?.agentMail?.webhookUrl || config.agentMail.webhookUrl
+        apiKey: agentMailKey,
+        webhookUrl: integrationConfig?.agentMail?.webhookUrl || config.agentMail.webhookUrl || ''
       });
     }
     
     // Initialize Browser-Use
-    if (integrationConfig?.browserUse?.apiKey || config.browserUse.apiKey) {
-      this.browserUse = new BrowserUseIntegration(
-        integrationConfig?.browserUse?.apiKey || config.browserUse.apiKey
-      );
+    const browserUseKey = integrationConfig?.browserUse?.apiKey || config.browserUse.apiKey;
+    if (browserUseKey) {
+      this.browserUse = new BrowserUseIntegration(browserUseKey);
     }
     
     // Initialize Hyperspell
-    if (integrationConfig?.hyperspell?.apiKey || config.hyperspell.apiKey) {
+    const hyperspellKey = integrationConfig?.hyperspell?.apiKey || config.hyperspell.apiKey;
+    if (hyperspellKey) {
       this.hyperspell = new HyperspellIntegration(
-        integrationConfig?.hyperspell?.apiKey || config.hyperspell.apiKey,
-        integrationConfig?.hyperspell?.namespace
+        hyperspellKey,
+        integrationConfig?.hyperspell?.namespace || ''
       );
     }
     
     // Initialize Perplexity
-    if (integrationConfig?.perplexity?.apiKey || config.perplexity.apiKey) {
-      this.perplexity = new PerplexityIntegration(
-        integrationConfig?.perplexity?.apiKey || config.perplexity.apiKey
-      );
+    const perplexityKey = integrationConfig?.perplexity?.apiKey || config.perplexity.apiKey;
+    if (perplexityKey) {
+      this.perplexity = new PerplexityIntegration(perplexityKey);
     }
     
     // Initialize Composio
-    if (integrationConfig?.composio?.apiKey || config.composio.apiKey) {
-      this.composio = new ComposioIntegration(
-        integrationConfig?.composio?.apiKey || config.composio.apiKey
-      );
+    const composioKey = integrationConfig?.composio?.apiKey || config.composio.apiKey;
+    if (composioKey) {
+      this.composio = new ComposioIntegration(composioKey);
     }
     
     // Initialize OpenAI
-    if (integrationConfig?.openai?.apiKey || config.openai.apiKey) {
-      this.openai = new OpenAIIntegration(
-        integrationConfig?.openai?.apiKey || config.openai.apiKey
-      );
+    const openaiKey = integrationConfig?.openai?.apiKey || config.openai.apiKey;
+    if (openaiKey) {
+      this.openai = new OpenAIIntegration(openaiKey);
     }
   }
   

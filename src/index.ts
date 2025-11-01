@@ -21,6 +21,12 @@ async function main() {
     // Initialize orchestrator
     const orchestrator = new AutoBazaaarOrchestrator({
       redis: config.redis,
+      browserUse: integrations.browserUse || null,
+      perplexity: integrations.perplexity || null,
+      agentMail: integrations.agentMail || null,
+      openai: integrations.openai || null,
+      hyperspell: integrations.hyperspell || null,
+      composio: integrations.composio || null,
       targetCategories: config.orchestrator.targetCategories,
       targetPlatforms: config.orchestrator.targetPlatforms,
       maxBudget: config.orchestrator.maxBudget,

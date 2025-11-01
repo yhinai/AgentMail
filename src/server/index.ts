@@ -24,6 +24,12 @@ const queueManager = new QueueManager(config.redis);
 const integrations = new IntegrationManager();
 const orchestrator = new AutoBazaaarOrchestrator({
   redis: config.redis,
+  browserUse: integrations.browserUse || null,
+  perplexity: integrations.perplexity || null,
+  agentMail: integrations.agentMail || null,
+  openai: integrations.openai || null,
+  hyperspell: integrations.hyperspell || null,
+  composio: integrations.composio || null,
   targetCategories: config.orchestrator.targetCategories,
   targetPlatforms: config.orchestrator.targetPlatforms,
   maxBudget: config.orchestrator.maxBudget,
@@ -108,10 +114,10 @@ app.get('/api/opportunities', async (req: Request, res: Response) => {
       limit: 100
     });
 
-    res.json({ opportunities: opportunities || [] });
+    return res.json({ opportunities: opportunities || [] });
   } catch (error: any) {
     console.error('Error fetching opportunities:', error);
-    res.json({ opportunities: [] });
+    return res.json({ opportunities: [] });
   }
 });
 
@@ -136,7 +142,7 @@ app.get('/api/negotiations/:id', async (req: Request, res: Response) => {
 // Listings endpoints
 app.get('/api/listings', async (req: Request, res: Response) => {
   // Get active listings
-  res.json({ listings: [] });
+  return res.json({ listings: [] });
 });
 
 // Scraped listings endpoint
@@ -168,10 +174,10 @@ app.get('/api/listings/scraped', async (req: Request, res: Response) => {
       limit: 100
     });
 
-    res.json({ listings: listings || [] });
+    return res.json({ listings: listings || [] });
   } catch (error: any) {
     console.error('Error fetching scraped listings:', error);
-    res.json({ listings: [] });
+    return res.json({ listings: [] });
   }
 });
 
@@ -225,7 +231,7 @@ app.post('/api/command', async (req: Request, res: Response) => {
     });
 
     // Return immediately with command ID
-    res.json({
+    return res.json({
       success: true,
       commandId,
       status: 'pending',
@@ -234,7 +240,7 @@ app.post('/api/command', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Command API error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: error.message || 'Failed to process command'
     });
@@ -253,9 +259,9 @@ app.get('/api/command/:commandId', async (req: Request, res: Response) => {
       });
     }
 
-    res.json(status);
+    return res.json(status);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
@@ -279,7 +285,7 @@ app.post('/api/command/preview', async (req: Request, res: Response) => {
       return res.json({ parsed: null });
     }
 
-    res.json({
+    return res.json({
       parsed: {
         budget: parseResult.command.budget,
         quantity: parseResult.command.quantity,
@@ -289,7 +295,7 @@ app.post('/api/command/preview', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     // Preview errors shouldn't block the UI
-    res.json({ parsed: null });
+    return res.json({ parsed: null });
   }
 });
 
