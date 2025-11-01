@@ -478,10 +478,8 @@ export class DatabaseClient {
       throw new Error('Convex client not initialized');
     }
 
-    const queueEmailFn = getApiFunction('emails.queueEmail');
-    if (!queueEmailFn) {
-      throw new Error('Email functions not available. Deploy convex/emails.ts');
-    }
+    // Use string-based API call as fallback when generated API isn't available
+    const queueEmailFn = getApiFunction('emails.queueEmail') || 'emails:queueEmail' as any;
 
     const emailId = await this.client.mutation(queueEmailFn, {
       messageId: emailData.messageId,
@@ -506,10 +504,7 @@ export class DatabaseClient {
       return [];
     }
 
-    const getPendingEmailsFn = getApiFunction('emails.getPendingEmails');
-    if (!getPendingEmailsFn) {
-      return [];
-    }
+    const getPendingEmailsFn = getApiFunction('emails.getPendingEmails') || 'emails:getPendingEmails' as any;
 
     const emails = await this.client.query(getPendingEmailsFn, { limit });
     return emails || [];
@@ -529,10 +524,7 @@ export class DatabaseClient {
       return { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
     }
 
-    const getQueueStatsFn = getApiFunction('emails.getQueueStats');
-    if (!getQueueStatsFn) {
-      return { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
-    }
+    const getQueueStatsFn = getApiFunction('emails.getQueueStats') || 'emails:getQueueStats' as any;
 
     const stats = await this.client.query(getQueueStatsFn, {});
     return stats || { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 };
@@ -546,10 +538,7 @@ export class DatabaseClient {
       return null;
     }
 
-    const getEmailByMessageIdFn = getApiFunction('emails.getByMessageId');
-    if (!getEmailByMessageIdFn) {
-      return null;
-    }
+    const getEmailByMessageIdFn = getApiFunction('emails.getByMessageId') || 'emails:getByMessageId' as any;
 
     const email = await this.client.query(getEmailByMessageIdFn, { messageId });
     return email || null;
@@ -568,10 +557,7 @@ export class DatabaseClient {
       throw new Error('Convex client not initialized');
     }
 
-    const updateStatusFn = getApiFunction('emails.updateEmailStatus');
-    if (!updateStatusFn) {
-      throw new Error('Email functions not available');
-    }
+    const updateStatusFn = getApiFunction('emails.updateEmailStatus') || 'emails:updateEmailStatus' as any;
 
     await this.client.mutation(updateStatusFn, {
       emailId: params.emailId as any,
@@ -612,10 +598,7 @@ export class DatabaseClient {
       throw new Error('Convex client not initialized');
     }
 
-    const logActivityFn = getApiFunction('emails.logActivity');
-    if (!logActivityFn) {
-      throw new Error('Email functions not available');
-    }
+    const logActivityFn = getApiFunction('emails.logActivity') || 'emails:logActivity' as any;
 
     const activityId = await this.client.mutation(logActivityFn, {
       ...activity,
@@ -633,10 +616,7 @@ export class DatabaseClient {
       return [];
     }
 
-    const getRecentActivityFn = getApiFunction('emails.getRecentActivity');
-    if (!getRecentActivityFn) {
-      return [];
-    }
+    const getRecentActivityFn = getApiFunction('emails.getRecentActivity') || 'emails:getRecentActivity' as any;
 
     const activities = await this.client.query(getRecentActivityFn, { limit });
     return activities || [];
